@@ -1,0 +1,18 @@
+Flask
+Flask-SQLAlchemy
+Flask-Migrate
+Flask-JWT-Extended
+Flask-CORS
+Flask-Limiter
+python-dotenv
+PyJWT
+bcrypt
+requests
+# msal
+marshmallow
+pyodbc
+apispec
+apispec-webframeworks
+flasgger
+gunicorn
+python-dateutil
