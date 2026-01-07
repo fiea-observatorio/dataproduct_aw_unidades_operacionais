@@ -18,75 +18,127 @@ def seed_database():
                 print("❌ Operação cancelada")
                 return
         
-        # Criar usuário admin
-        print("\n👤 Criando usuário admin...")
+        # Criar usuários
+        print("\n👤 Criando usuários...")
+        
+        # Admin
         admin = User(username='admin', role='admin')
-        admin.set_password('admin123')
+        admin.set_password('admin')
         db.session.add(admin)
         
-        # Criar usuário comum
-        print("👤 Criando usuário teste...")
-        user1 = User(username='usuario1', role='user')
-        user1.set_password('senha123')
-        db.session.add(user1)
+        # Usuários normais
+        sesi_centro = User(username='sesi.centro', role='user')
+        sesi_centro.set_password('1234')
+        db.session.add(sesi_centro)
         
-        user2 = User(username='usuario2', role='user')
-        user2.set_password('senha123')
-        db.session.add(user2)
+        sesi_senai_benedito = User(username='sesi.senai.benedito', role='user')
+        sesi_senai_benedito.set_password('5678')
+        db.session.add(sesi_senai_benedito)
+        
+        sesi_saude_cambona = User(username='sesi.saude.cambona', role='user')
+        sesi_saude_cambona.set_password('9012')
+        db.session.add(sesi_saude_cambona)
+        
+        sesi_saude_tabuleiro = User(username='sesi.saude.tabuleiro', role='user')
+        sesi_saude_tabuleiro.set_password('3456')
+        db.session.add(sesi_saude_tabuleiro)
+        
+        sesi_senai_arapiraca = User(username='sesi.senai.arapiraca', role='user')
+        sesi_senai_arapiraca.set_password('7890')
+        db.session.add(sesi_senai_arapiraca)
+        
+        senai_poco = User(username='senai.poco', role='user')
+        senai_poco.set_password('2468')
+        db.session.add(senai_poco)
+        
+        diretoria = User(username='diretoria', role='user')
+        diretoria.set_password('1357')
+        db.session.add(diretoria)
         
         db.session.commit()
         print("✅ Usuários criados!")
         
         # Criar unidades
         print("\n🏢 Criando unidades...")
-        unit1 = Unit(
-            name='Unidade Sul',
-            description='Unidade da região sul'
+        unit_sesi_educacao = Unit(
+            name='SESI Educação Básica',
+            description='Unidade de Educação Básica do SESI'
         )
-        db.session.add(unit1)
+        db.session.add(unit_sesi_educacao)
         
-        unit2 = Unit(
-            name='Unidade Norte',
-            description='Unidade da região norte'
+        unit_sesi_saude = Unit(
+            name='SESI Saúde',
+            description='Unidade de Saúde e Segurança do Trabalho do SESI'
         )
-        db.session.add(unit2)
+        db.session.add(unit_sesi_saude)
         
-        unit3 = Unit(
-            name='Unidade Leste',
-            description='Unidade da região leste'
+        unit_senai_educacao = Unit(
+            name='SENAI Educação Profissional e STI',
+            description='Unidade de Educação Profissional e Serviços Técnicos e Tecnológicos do SENAI'
         )
-        db.session.add(unit3)
+        db.session.add(unit_senai_educacao)
         
         db.session.commit()
         print("✅ Unidades criadas!")
         
         # Associar usuários às unidades
         print("\n🔗 Associando usuários às unidades...")
-        user1.units.append(unit1)
-        user1.units.append(unit2)
-        user2.units.append(unit2)
-        user2.units.append(unit3)
+        
+        # sesi.centro -> SESI Educação Básica
+        sesi_centro.units.append(unit_sesi_educacao)
+        
+        # sesi.senai.benedito -> SESI Educação Básica, SENAI Educação Profissional e STI
+        sesi_senai_benedito.units.append(unit_sesi_educacao)
+        sesi_senai_benedito.units.append(unit_senai_educacao)
+        
+        # sesi.saude.cambona -> SESI Saúde
+        sesi_saude_cambona.units.append(unit_sesi_saude)
+        
+        # sesi.saude.tabuleiro -> SESI Saúde
+        sesi_saude_tabuleiro.units.append(unit_sesi_saude)
+        
+        # sesi.senai.arapiraca -> SESI Saúde, SENAI Educação Profissional e STI
+        sesi_senai_arapiraca.units.append(unit_sesi_saude)
+        sesi_senai_arapiraca.units.append(unit_senai_educacao)
+        
+        # senai.poco -> SENAI Educação Profissional e STI
+        senai_poco.units.append(unit_senai_educacao)
+        
+        # diretoria -> SESI Educação Básica, SESI Saúde, SENAI Educação Profissional e STI
+        diretoria.units.append(unit_sesi_educacao)
+        diretoria.units.append(unit_sesi_saude)
+        diretoria.units.append(unit_senai_educacao)
         
         db.session.commit()
         print("✅ Associações criadas!")
         
         # Resumo
-        print("\n" + "="*50)
+        print("\n" + "="*60)
         print("📊 RESUMO DOS DADOS CRIADOS")
-        print("="*50)
+        print("="*60)
         print("\n👥 Usuários:")
-        print(f"   - admin (senha: admin123) - Role: admin")
-        print(f"   - usuario1 (senha: senha123) - Role: user")
-        print(f"   - usuario2 (senha: senha123) - Role: user")
+        print("   - admin (senha: admin) - Role: admin")
+        print("   - sesi.centro (senha: 1234)")
+        print("   - sesi.senai.benedito (senha: 5678)")
+        print("   - sesi.saude.cambona (senha: 9012)")
+        print("   - sesi.saude.tabuleiro (senha: 3456)")
+        print("   - sesi.senai.arapiraca (senha: 7890)")
+        print("   - senai.poco (senha: 2468)")
+        print("   - diretoria (senha: 1357)")
         
         print("\n🏢 Unidades:")
-        print(f"   - {unit1.name}")
-        print(f"   - {unit2.name}")
-        print(f"   - {unit3.name}")
+        print(f"   - {unit_sesi_educacao.name}")
+        print(f"   - {unit_sesi_saude.name}")
+        print(f"   - {unit_senai_educacao.name}")
         
-        print("\n🔗 Associações:")
-        print(f"   - usuario1: Unidade Sul, Unidade Norte")
-        print(f"   - usuario2: Unidade Norte, Unidade Leste")
+        print("\n🔗 Associações Usuário → Unidades:")
+        print("   - sesi.centro → SESI Educação Básica")
+        print("   - sesi.senai.benedito → SESI Educação Básica, SENAI Educação Profissional e STI")
+        print("   - sesi.saude.cambona → SESI Saúde")
+        print("   - sesi.saude.tabuleiro → SESI Saúde")
+        print("   - sesi.senai.arapiraca → SESI Saúde, SENAI Educação Profissional e STI")
+        print("   - senai.poco → SENAI Educação Profissional e STI")
+        print("   - diretoria → SESI Educação Básica, SESI Saúde, SENAI Educação Profissional e STI")
         
         print("\n✅ Banco populado com sucesso!")
         print("\n💡 Para testar as rotas, use o arquivo test_routes.py")

@@ -23,7 +23,6 @@ API REST completa para gestão de usuários, unidades e integração com Power B
 - Python 3.10+
 - Flask 3.0
 - SQLAlchemy (ORM)
-- PostgreSQL (ou SQLite para desenvolvimento)
 - Flask-JWT-Extended
 - MSAL (Microsoft Authentication Library)
 
