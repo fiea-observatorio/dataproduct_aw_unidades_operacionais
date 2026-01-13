@@ -116,7 +116,25 @@ class PowerBIService:
                 }
             ]
         
+        # Log detalhado para debug
+        current_app.logger.info(f"=== Power BI GenerateToken Request ===")
+        current_app.logger.info(f"URL: {url}")
+        current_app.logger.info(f"Payload: {json.dumps(payload, indent=2)}")
+        
         response = requests.post(url, headers=self.get_headers(), json=payload)
+        
+        # Log da resposta
+        current_app.logger.info(f"Status Code: {response.status_code}")
+        if not response.ok:
+            error_detail = response.text
+            try:
+                error_json = response.json()
+                error_detail = json.dumps(error_json, indent=2)
+            except:
+                pass
+            current_app.logger.error(f"Power BI Error Response: {error_detail}")
+            raise Exception(f"Power BI API Error {response.status_code}: {error_detail}")
+        
         response.raise_for_status()
         
         result = response.json()

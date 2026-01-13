@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from app import db
-from app.models import User, Unit, Link, Report, AccessLog
+from app.models import User, Unit, Link, Report
 from app.middleware.auth import require_role
 from sqlalchemy import func
 
@@ -119,7 +119,6 @@ def get_stats():
         'total_units': Unit.query.count(),
         'total_links': Link.query.count(),
         'total_reports': Report.query.count(),
-        'total_accesses': AccessLog.query.count(),
         'users_by_role': dict(
             db.session.query(User.role, func.count(User.id))
             .group_by(User.role)
@@ -129,47 +128,4 @@ def get_stats():
     
     return jsonify(stats), 200
 
-@bp.route('/access-logs', methods=['GET'])
-@jwt_required()
-@require_role('admin')
-def get_access_logs():
-    """
-    Obter logs de acesso (apenas admin)
-    ---
-    tags:
-      - Admin
-    security:
-      - Bearer: []
-    parameters:
-      - in: query
-        name: user_id
-        type: integer
-        required: false
-      - in: query
-        name: report_id
-        type: integer
-        required: false
-      - in: query
-        name: limit
-        type: integer
-        required: false
-        default: 100
-    responses:
-      200:
-        description: Logs de acesso
-    """
-    query = AccessLog.query
-    
-    user_id = request.args.get('user_id', type=int)
-    if user_id:
-        query = query.filter_by(user_id=user_id)
-    
-    report_id = request.args.get('report_id', type=int)
-    if report_id:
-        query = query.filter_by(report_id=report_id)
-    
-    limit = request.args.get('limit', type=int, default=100)
-    
-    logs = query.order_by(AccessLog.created_at.desc()).limit(limit).all()
-    
-    return jsonify([log.to_dict() for log in logs]), 200
+

@@ -14,6 +14,7 @@ class User(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(120), nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default='user')  # admin, user
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -21,7 +22,6 @@ class User(db.Model):
     
     # Relationships
     units = db.relationship('Unit', secondary=user_units, back_populates='users')
-    access_logs = db.relationship('AccessLog', back_populates='user', lazy='dynamic')
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -33,6 +33,7 @@ class User(db.Model):
         data = {
             'id': self.id,
             'username': self.username,
+            'name': self.name,
             'role': self.role,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
@@ -109,7 +110,6 @@ class Report(db.Model):
     
     # Relationships
     unit = db.relationship('Unit', back_populates='reports')
-    access_logs = db.relationship('AccessLog', back_populates='report', lazy='dynamic')
     
     def to_dict(self):
         return {
@@ -124,27 +124,4 @@ class Report(db.Model):
             'updated_at': self.updated_at.isoformat()
         }
 
-class AccessLog(db.Model):
-    __tablename__ = 'access_logs'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    report_id = db.Column(db.Integer, db.ForeignKey('reports.id'), nullable=False)
-    action = db.Column(db.String(50), default='view')  # view, embed_token_generated
-    ip_address = db.Column(db.String(45))
-    user_agent = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
-    
-    # Relationships
-    user = db.relationship('User', back_populates='access_logs')
-    report = db.relationship('Report', back_populates='access_logs')
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'report_id': self.report_id,
-            'action': self.action,
-            'ip_address': self.ip_address,
-            'created_at': self.created_at.isoformat()
-        }
+

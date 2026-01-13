@@ -8,7 +8,7 @@ python-dotenv
 PyJWT
 bcrypt
 requests
-# msal
+msal
 marshmallow
 pyodbc
 apispec

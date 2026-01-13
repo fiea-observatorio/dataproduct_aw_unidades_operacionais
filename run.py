@@ -1,5 +1,5 @@
 from app import create_app, db
-from app.models import User, Unit, Link, Report, AccessLog
+from app.models import User, Unit, Link, Report
 import os
 
 app = create_app()
@@ -12,8 +12,7 @@ def make_shell_context():
         'User': User,
         'Unit': Unit,
         'Link': Link,
-        'Report': Report,
-        'AccessLog': AccessLog
+        'Report': Report
     }
 
 if __name__ == '__main__':

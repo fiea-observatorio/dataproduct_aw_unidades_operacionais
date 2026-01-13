@@ -22,36 +22,36 @@ def seed_database():
         print("\n👤 Criando usuários...")
         
         # Admin
-        admin = User(username='admin', role='admin')
+        admin = User(username='admin', name='Administrador', role='admin')
         admin.set_password('admin')
         db.session.add(admin)
         
         # Usuários normais
-        sesi_centro = User(username='sesi.centro', role='user')
+        sesi_centro = User(username='sesi.centro', name='Escola SESI Centro', role='user')
         sesi_centro.set_password('1234')
         db.session.add(sesi_centro)
         
-        sesi_senai_benedito = User(username='sesi.senai.benedito', role='user')
+        sesi_senai_benedito = User(username='sesi.senai.benedito', name='SESI/SENAI Benedito Bentes', role='user')
         sesi_senai_benedito.set_password('5678')
         db.session.add(sesi_senai_benedito)
         
-        sesi_saude_cambona = User(username='sesi.saude.cambona', role='user')
+        sesi_saude_cambona = User(username='sesi.saude.cambona', name='SESI Saúde Cambona', role='user')
         sesi_saude_cambona.set_password('9012')
         db.session.add(sesi_saude_cambona)
         
-        sesi_saude_tabuleiro = User(username='sesi.saude.tabuleiro', role='user')
+        sesi_saude_tabuleiro = User(username='sesi.saude.tabuleiro', name='SESI Saúde Tabuleriro', role='user')
         sesi_saude_tabuleiro.set_password('3456')
         db.session.add(sesi_saude_tabuleiro)
         
-        sesi_senai_arapiraca = User(username='sesi.senai.arapiraca', role='user')
+        sesi_senai_arapiraca = User(username='sesi.senai.arapiraca', name='SESI/SENAI Arapiraca', role='user')
         sesi_senai_arapiraca.set_password('7890')
         db.session.add(sesi_senai_arapiraca)
         
-        senai_poco = User(username='senai.poco', role='user')
+        senai_poco = User(username='senai.poco', name='SENAI Poço', role='user')
         senai_poco.set_password('2468')
         db.session.add(senai_poco)
         
-        diretoria = User(username='diretoria', role='user')
+        diretoria = User(username='diretoria', name='Diretoria', role='user')
         diretoria.set_password('1357')
         db.session.add(diretoria)
         

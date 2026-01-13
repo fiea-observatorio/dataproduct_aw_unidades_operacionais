@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required
 from app import db
-from app.models import Report, Unit, AccessLog
+from app.models import Report, Unit
 from app.services.powerbi_service import PowerBIService
 from app.middleware.auth import get_current_user, require_role
 
@@ -224,79 +224,6 @@ def delete_report(id):
     
     return '', 204
 
-@bp.route('/<int:id>/embed-token', methods=['POST'])
-@jwt_required()
-def generate_embed_token(id):
-    """
-    Gerar embed token para um report
-    ---
-    tags:
-      - Reports
-    security:
-      - Bearer: []
-    parameters:
-      - in: path
-        name: id
-        type: integer
-        required: true
-      - in: body
-        name: body
-        schema:
-          type: object
-          properties:
-            roles:
-              type: array
-              items:
-                type: string
-              example: ["SalesManager"]
-    responses:
-      200:
-        description: Token gerado com sucesso
-      403:
-        description: Acesso negado
-      404:
-        description: Report não encontrado
-    """
-    report = Report.query.get_or_404(id)
-    user = get_current_user()
-    
-    # Verificar acesso
-    if user.role != 'admin' and report.unit not in user.units:
-        return jsonify({'error': 'Access denied'}), 403
-    
-    try:
-        pbi_service = PowerBIService()
-        
-        # Obter roles do body (para RLS)
-        data = request.get_json() or {}
-        roles = data.get('roles', [])
-        
-        # Gerar token com RLS baseado no username
-        token_data = pbi_service.generate_embed_token(
-            workspace_id=report.workspace_id,
-            report_id=report.report_id,
-            dataset_ids=[report.dataset_id] if report.dataset_id else None,
-            username=user.username if roles else None,
-            roles=roles if roles else None
-        )
-        
-        # Registrar acesso
-        access_log = AccessLog(
-            user_id=user.id,
-            report_id=report.id,
-            action='embed_token_generated',
-            ip_address=request.remote_addr,
-            user_agent=request.headers.get('User-Agent')
-        )
-        db.session.add(access_log)
-        db.session.commit()
-        
-        return jsonify(token_data), 200
-    
-    except Exception as e:
-        current_app.logger.error(f"Error generating embed token: {str(e)}")
-        return jsonify({'error': 'Failed to generate embed token', 'details': str(e)}), 500
-
 @bp.route('/<int:id>/embed-config', methods=['GET'])
 @jwt_required()
 def get_embed_config(id):
@@ -327,39 +254,35 @@ def get_embed_config(id):
     """
     report = Report.query.get_or_404(id)
     user = get_current_user()
-    
+
     # Verificar acesso
     if user.role != 'admin' and report.unit not in user.units:
         return jsonify({'error': 'Access denied'}), 403
-    
+
     try:
         pbi_service = PowerBIService()
-        
+
+        roles = ["rls_unidades"]
+        username = "2"
+
         # Obter roles da query string
         roles_str = request.args.get('roles', '')
-        roles = [r.strip() for r in roles_str.split(',') if r.strip()] if roles_str else []
-        
+        roles = (
+            [r.strip() for r in roles_str.split(",") if r.strip()]
+            if roles_str
+            else ["rls_unidades"]
+        )
+
         # Obter configuração completa
         config = pbi_service.get_embed_config(
             workspace_id=report.workspace_id,
             report_id=report.report_id,
-            username=user.username if roles else None,
-            roles=roles if roles else None
+            username=username,
+            roles=roles
         )
-        
-        # Registrar acesso
-        access_log = AccessLog(
-            user_id=user.id,
-            report_id=report.id,
-            action='view',
-            ip_address=request.remote_addr,
-            user_agent=request.headers.get('User-Agent')
-        )
-        db.session.add(access_log)
-        db.session.commit()
-        
+
         return jsonify(config), 200
-    
+
     except Exception as e:
         current_app.logger.error(f"Error getting embed config: {str(e)}")
         return jsonify({'error': 'Failed to get embed configuration', 'details': str(e)}), 500
