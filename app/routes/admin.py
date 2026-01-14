@@ -117,7 +117,6 @@ def get_stats():
     stats = {
         'total_users': User.query.count(),
         'total_units': Unit.query.count(),
-        'total_links': Link.query.count(),
         'total_reports': Report.query.count(),
         'users_by_role': dict(
             db.session.query(User.role, func.count(User.id))

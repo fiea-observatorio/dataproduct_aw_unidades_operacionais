@@ -100,7 +100,7 @@ def get_unit(id):
         description: Unidade não encontrada
     """
     unit = Unit.query.get_or_404(id)
-    return jsonify(unit.to_dict(include_users=True, include_links=True)), 200
+    return jsonify(unit.to_dict(include_users=True)), 200
 
 @bp.route('/<int:id>', methods=['PUT'])
 @jwt_required()
