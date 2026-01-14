@@ -130,7 +130,7 @@ def login():
     return jsonify({
         'access_token': access_token,
         'refresh_token': refresh_token,
-        'user': user.to_dict()
+        'user': user.to_dict(include_units=True)
     }), 200
 
 @bp.route('/refresh', methods=['POST'])

@@ -72,11 +72,10 @@ def create_app(config_name=None):
     Swagger(app, config=swagger_config, template=swagger_template)
     
     # Register blueprints
-    from app.routes import auth, units, admin, links, reports
+    from app.routes import auth, units, admin, reports
     
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
     app.register_blueprint(units.bp, url_prefix='/api/units')
-    app.register_blueprint(links.bp, url_prefix='/api/links')
     app.register_blueprint(reports.bp, url_prefix='/api/reports')
     app.register_blueprint(admin.bp, url_prefix='/api/admin')
     

@@ -7,7 +7,6 @@ API REST completa para gestão de usuários, unidades e integração com Power B
 - ✅ Sistema de autenticação com JWT (login, register, refresh token)
 - ✅ Gestão de usuários com roles (admin/user)
 - ✅ Gestão de unidades e associação de usuários
-- ✅ Gestão de links/URLs para dashboards Power BI
 - ✅ Integração completa com Power BI Embed API
 - ✅ Geração de embed tokens com suporte a RLS (Row Level Security)
 - ✅ Sincronização automática de reports do Power BI
@@ -109,7 +108,7 @@ powerbi-app/
 │   ├── routes/
 │   │   ├── auth.py             # Rotas de autenticação
 │   │   ├── units.py            # Rotas de unidades
-│   │   ├── links.py            # Rotas de links
+
 │   │   ├── reports.py          # Rotas de reports Power BI
 │   │   └── admin.py            # Rotas administrativas
 │   ├── services/
@@ -141,14 +140,6 @@ powerbi-app/
 - `DELETE /api/units/{id}` - Deletar unidade (admin)
 - `POST /api/units/{id}/users` - Adicionar usuário (admin)
 - `GET /api/units/{id}/users` - Listar usuários da unidade
-
-### Links
-- `GET /api/units/{unit_id}/links` - Listar links da unidade
-- `POST /api/units/{unit_id}/links` - Criar link (admin)
-- `GET /api/links/{id}` - Obter link
-- `PUT /api/links/{id}` - Atualizar link (admin)
-- `DELETE /api/links/{id}` - Deletar link (admin)
-- `GET /api/me/links` - Listar meus links
 
 ### Reports Power BI
 - `GET /api/reports` - Listar reports

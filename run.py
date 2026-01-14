@@ -1,5 +1,5 @@
 from app import create_app, db
-from app.models import User, Unit, Link, Report
+from app.models import User, Unit, Report, Step
 import os
 
 app = create_app()
@@ -11,8 +11,8 @@ def make_shell_context():
         'db': db,
         'User': User,
         'Unit': Unit,
-        'Link': Link,
-        'Report': Report
+        'Report': Report,
+        'Step': Step
     }
 
 if __name__ == '__main__':
