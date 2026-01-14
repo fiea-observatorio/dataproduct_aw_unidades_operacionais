@@ -23,49 +23,62 @@ def seed_database():
         # Criar usuários
         print("\n👤 Criando usuários...")
 
-        # Admin
-        admin = User(username="admin", name="Administrador", role="admin")
-        admin.set_password("admin")
-        db.session.add(admin)
-
         # Usuários normais
-        sesi_centro = User(
-            username="sesi.centro", name="Escola SESI Centro", role="user"
+        senai_poco = User(
+            username="senai.poco", name="SENAI Poço", role="user", bi_filter_param="1"
         )
-        sesi_centro.set_password("1234")
+        senai_poco.set_password("2468")
+        db.session.add(senai_poco)
+
+        sesi_saude_cambona = User(
+            username="sesi.saude.cambona",
+            name="SESI Saúde Cambona",
+            role="user",
+            bi_filter_param="2",
+        )
+        sesi_saude_cambona.set_password("9012")
+        db.session.add(sesi_saude_cambona)
+
+        sesi_centro = User(
+            username="sesi.centro",
+            name="Escola SESI Centro",
+            role="user",
+            bi_filter_param="3",
+        )
+        sesi_centro.set_password("1243")
         db.session.add(sesi_centro)
+
+        sesi_senai_arapiraca = User(
+            username="sesi.senai.arapiraca",
+            name="SESI/SENAI Arapiraca",
+            role="user",
+            bi_filter_param="4",
+        )
+        sesi_senai_arapiraca.set_password("7890")
+        db.session.add(sesi_senai_arapiraca)
 
         sesi_senai_benedito = User(
             username="sesi.senai.benedito",
             name="SESI/SENAI Benedito Bentes",
             role="user",
+            bi_filter_param="5",
         )
         sesi_senai_benedito.set_password("5678")
         db.session.add(sesi_senai_benedito)
 
-        sesi_saude_cambona = User(
-            username="sesi.saude.cambona", name="SESI Saúde Cambona", role="user"
-        )
-        sesi_saude_cambona.set_password("9012")
-        db.session.add(sesi_saude_cambona)
-
         sesi_saude_tabuleiro = User(
-            username="sesi.saude.tabuleiro", name="SESI Saúde Tabuleriro", role="user"
+            username="sesi.saude.tabuleiro",
+            name="SESI Saúde Tabuleiro",
+            role="user",
+            bi_filter_param="6",
         )
         sesi_saude_tabuleiro.set_password("3456")
         db.session.add(sesi_saude_tabuleiro)
 
-        sesi_senai_arapiraca = User(
-            username="sesi.senai.arapiraca", name="SESI/SENAI Arapiraca", role="user"
+        # Admin
+        diretoria = User(
+            username="diretoria", name="Diretoria", role="admin", bi_filter_param="0"
         )
-        sesi_senai_arapiraca.set_password("7890")
-        db.session.add(sesi_senai_arapiraca)
-
-        senai_poco = User(username="senai.poco", name="SENAI Poço", role="user")
-        senai_poco.set_password("2468")
-        db.session.add(senai_poco)
-
-        diretoria = User(username="diretoria", name="Diretoria", role="admin")
         diretoria.set_password("1357")
         db.session.add(diretoria)
 
@@ -390,7 +403,6 @@ def seed_database():
             },
         ]
 
-        all_reports = []
         for report_data in reports_data:
             # Criar report
             report = Report(
@@ -400,15 +412,15 @@ def seed_database():
                 step_id=blocos_map[int(report_data["step_number"])].id,
                 # embed_url=f'https://app.powerbi.com/reportEmbed?reportId={report_data["id"]}',
             )
+            
+            # Adicionar ao session primeiro
+            db.session.add(report)
 
-            # Associar unidades
+            # Associar unidades depois de adicionar à sessão
             unit_ids = [int(u) for u in report_data["units"].split(",")]
             for unit_id in unit_ids:
                 report.units.append(units_map[unit_id])
 
-            all_reports.append(report)
-
-        db.session.add_all(all_reports)
         db.session.commit()
         print("✅ Relatórios criados!")
 

@@ -273,11 +273,6 @@ def get_embed_config(id):
         name: id
         type: integer
         required: true
-      - in: query
-        name: roles
-        type: string
-        required: false
-        description: Roles para RLS (separados por vírgula)
     responses:
       200:
         description: Configuração de embed
@@ -296,16 +291,11 @@ def get_embed_config(id):
     try:
         pbi_service = PowerBIService()
 
-        roles = ["rls_unidades"]
-        username = "2"
+        # Usar bi_filter_param do usuário como username
+        username = user.bi_filter_param
 
-        # Obter roles da query string
-        roles_str = request.args.get('roles', '')
-        roles = (
-            [r.strip() for r in roles_str.split(",") if r.strip()]
-            if roles_str
-            else ["rls_unidades"]
-        )
+        # Roles fixo
+        roles = ["rls_unidades"]
 
         # Obter configuração completa
         config = pbi_service.get_embed_config(

@@ -24,6 +24,7 @@ class User(db.Model):
     name = db.Column(db.String(120), nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default='user')  # admin, user
+    bi_filter_param = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -42,6 +43,7 @@ class User(db.Model):
             'username': self.username,
             'name': self.name,
             'role': self.role,
+            'bi_filter_param': self.bi_filter_param,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
