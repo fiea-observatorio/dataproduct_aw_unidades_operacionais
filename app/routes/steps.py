@@ -23,9 +23,9 @@ def list_steps():
     steps = Step.query.order_by(Step.step_number).all()
     return jsonify([step.to_dict() for step in steps]), 200
 
-@bp.route('/<int:step_id>/units/<int:unit_id>/reports', methods=['GET'])
+@bp.route('/<int:step_number>/units/<int:unit_id>/reports', methods=['GET'])
 @jwt_required()
-def get_reports_by_step_and_unit(step_id, unit_id):
+def get_reports_by_step_and_unit(step_number, unit_id):
     """
     Obter reports de um step específico para uma unidade específica
     ---
@@ -35,11 +35,11 @@ def get_reports_by_step_and_unit(step_id, unit_id):
       - Bearer: []
     parameters:
       - in: path
-        name: step_id
+        name: step_number
         required: true
         schema:
           type: integer
-        description: ID do step
+        description: Número do step (1-6)
       - in: path
         name: unit_id
         required: true
@@ -56,8 +56,8 @@ def get_reports_by_step_and_unit(step_id, unit_id):
     """
     user = get_current_user()
     
-    # Verificar se o step existe
-    step = Step.query.get(step_id)
+    # Verificar se o step existe usando step_number
+    step = Step.query.filter_by(step_number=step_number).first()
     if not step:
         return jsonify({'error': 'Step não encontrado'}), 404
     
@@ -72,7 +72,7 @@ def get_reports_by_step_and_unit(step_id, unit_id):
     
     # Buscar reports que pertencem ao step E à unidade
     reports = Report.query.filter(
-        Report.step_id == step_id,
+        Report.step_id == step.id,
         Report.units.any(Unit.id == unit_id)
     ).all()
     
