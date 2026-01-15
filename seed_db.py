@@ -4,7 +4,7 @@ Execute: python seed_db.py
 """
 
 from app import create_app, db
-from app.models import User, Unit, Step, Report
+from app.models import User, Unit, Step, Report, UserUnit
 
 
 def seed_database():
@@ -25,7 +25,7 @@ def seed_database():
 
         # Usuários normais
         senai_poco = User(
-            username="senai.poco", name="SENAI Poço", role="user", bi_filter_param="1"
+            username="senai.poco", name="SENAI Poço", role="user"
         )
         senai_poco.set_password("2468")
         db.session.add(senai_poco)
@@ -33,8 +33,7 @@ def seed_database():
         sesi_saude_cambona = User(
             username="sesi.saude.cambona",
             name="SESI Saúde Cambona",
-            role="user",
-            bi_filter_param="2",
+            role="user"
         )
         sesi_saude_cambona.set_password("9012")
         db.session.add(sesi_saude_cambona)
@@ -42,8 +41,7 @@ def seed_database():
         sesi_centro = User(
             username="sesi.centro",
             name="Escola SESI Centro",
-            role="user",
-            bi_filter_param="3",
+            role="user"
         )
         sesi_centro.set_password("1243")
         db.session.add(sesi_centro)
@@ -51,8 +49,7 @@ def seed_database():
         sesi_senai_arapiraca = User(
             username="sesi.senai.arapiraca",
             name="SESI/SENAI Arapiraca",
-            role="user",
-            bi_filter_param="4",
+            role="user"
         )
         sesi_senai_arapiraca.set_password("7890")
         db.session.add(sesi_senai_arapiraca)
@@ -60,8 +57,7 @@ def seed_database():
         sesi_senai_benedito = User(
             username="sesi.senai.benedito",
             name="SESI/SENAI Benedito Bentes",
-            role="user",
-            bi_filter_param="5",
+            role="user"
         )
         sesi_senai_benedito.set_password("5678")
         db.session.add(sesi_senai_benedito)
@@ -69,15 +65,14 @@ def seed_database():
         sesi_saude_tabuleiro = User(
             username="sesi.saude.tabuleiro",
             name="SESI Saúde Tabuleiro",
-            role="user",
-            bi_filter_param="6",
+            role="user"
         )
         sesi_saude_tabuleiro.set_password("3456")
         db.session.add(sesi_saude_tabuleiro)
 
         # Admin
         diretoria = User(
-            username="diretoria", name="Diretoria", role="admin", bi_filter_param="0"
+            username="diretoria", name="Diretoria", role="admin"
         )
         diretoria.set_password("1357")
         db.session.add(diretoria)
@@ -112,29 +107,36 @@ def seed_database():
         print("\n🔗 Associando usuários às unidades...")
 
         # sesi.centro -> SESI Educação Básica
-        sesi_centro.units.append(unit_sesi_educacao)
+        uu1 = UserUnit(user_id=sesi_centro.id, unit_id=unit_sesi_educacao.id, bi_filter_param="3")
+        db.session.add(uu1)
 
         # sesi.senai.benedito -> SESI Educação Básica, SENAI Educação Profissional e STI
-        sesi_senai_benedito.units.append(unit_sesi_educacao)
-        sesi_senai_benedito.units.append(unit_senai_educacao)
+        uu2 = UserUnit(user_id=sesi_senai_benedito.id, unit_id=unit_sesi_educacao.id, bi_filter_param="5")
+        uu3 = UserUnit(user_id=sesi_senai_benedito.id, unit_id=unit_senai_educacao.id, bi_filter_param="6")
+        db.session.add_all([uu2, uu3])
 
         # sesi.saude.cambona -> SESI Saúde
-        sesi_saude_cambona.units.append(unit_sesi_saude)
+        uu4 = UserUnit(user_id=sesi_saude_cambona.id, unit_id=unit_sesi_saude.id, bi_filter_param="2")
+        db.session.add(uu4)
 
         # sesi.saude.tabuleiro -> SESI Saúde
-        sesi_saude_tabuleiro.units.append(unit_sesi_saude)
+        uu5 = UserUnit(user_id=sesi_saude_tabuleiro.id, unit_id=unit_sesi_saude.id, bi_filter_param="7")
+        db.session.add(uu5)
 
         # sesi.senai.arapiraca -> SESI Saúde, SENAI Educação Profissional e STI
-        sesi_senai_arapiraca.units.append(unit_sesi_saude)
-        sesi_senai_arapiraca.units.append(unit_senai_educacao)
+        uu6 = UserUnit(user_id=sesi_senai_arapiraca.id, unit_id=unit_sesi_saude.id, bi_filter_param="8")
+        uu7 = UserUnit(user_id=sesi_senai_arapiraca.id, unit_id=unit_senai_educacao.id, bi_filter_param="4")
+        db.session.add_all([uu6, uu7])
 
         # senai.poco -> SENAI Educação Profissional e STI
-        senai_poco.units.append(unit_senai_educacao)
+        uu8 = UserUnit(user_id=senai_poco.id, unit_id=unit_senai_educacao.id, bi_filter_param="1")
+        db.session.add(uu8)
 
         # diretoria -> SESI Educação Básica, SESI Saúde, SENAI Educação Profissional e STI
-        diretoria.units.append(unit_sesi_educacao)
-        diretoria.units.append(unit_sesi_saude)
-        diretoria.units.append(unit_senai_educacao)
+        uu9 = UserUnit(user_id=diretoria.id, unit_id=unit_sesi_educacao.id, bi_filter_param="0")
+        uu10 = UserUnit(user_id=diretoria.id, unit_id=unit_sesi_saude.id, bi_filter_param="0")
+        uu11 = UserUnit(user_id=diretoria.id, unit_id=unit_senai_educacao.id, bi_filter_param="0")
+        db.session.add_all([uu9, uu10, uu11])
 
         db.session.commit()
         print("✅ Associações criadas!")
@@ -142,12 +144,12 @@ def seed_database():
         # Criar Steps (blocos) globais - aplicam-se a todas as unidades
         print("\n📋 Criando blocos (steps) globais...")
 
-        bloco1 = Step(step_number=1, name="Bloco 1 - Recursos Humanos")
-        bloco2 = Step(step_number=2, name="Bloco 2 - Infraestrutura")
-        bloco3 = Step(step_number=3, name="Bloco 3 - Comercial")
-        bloco4 = Step(step_number=4, name="Bloco 4 - Operação")
-        bloco5 = Step(step_number=5, name="Bloco 5 - Orçamento e Financeiro")
-        bloco6 = Step(step_number=6, name="Bloco 6 - Estratégia")
+        bloco1 = Step(step_number=1, name="Recursos Humanos")
+        bloco2 = Step(step_number=2, name="Infraestrutura")
+        bloco3 = Step(step_number=3, name="Comercial")
+        bloco4 = Step(step_number=4, name="Operação")
+        bloco5 = Step(step_number=5, name="Orçamento e Financeiro")
+        bloco6 = Step(step_number=6, name="Estratégia")
 
         db.session.add_all([bloco1, bloco2, bloco3, bloco4, bloco5, bloco6])
         db.session.commit()

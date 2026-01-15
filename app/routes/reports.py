@@ -273,9 +273,16 @@ def get_embed_config(id):
         name: id
         type: integer
         required: true
+      - in: query
+        name: unit_id
+        type: integer
+        required: true
+        description: ID da unidade selecionada
     responses:
       200:
         description: Configuração de embed
+      400:
+        description: Parâmetros inválidos
       403:
         description: Acesso negado
       404:
@@ -283,16 +290,29 @@ def get_embed_config(id):
     """
     report = Report.query.get_or_404(id)
     user = get_current_user()
+    
+    # Obter unit_id do query parameter
+    unit_id = request.args.get('unit_id', type=int)
+    if not unit_id:
+        return jsonify({'error': 'unit_id is required'}), 400
 
-    # Verificar acesso
-    if user.role != 'admin' and report.unit not in user.units:
-        return jsonify({'error': 'Access denied'}), 403
+    # Verificar acesso - checar se o usuário tem acesso à unidade especificada
+    user_unit_ids = [u.id for u in user.units]
+    if user.role != 'admin' and unit_id not in user_unit_ids:
+        return jsonify({'error': 'Access denied to this unit'}), 403
+    
+    # Verificar se o report está disponível para a unidade
+    report_unit_ids = [u.id for u in report.units]
+    if unit_id not in report_unit_ids:
+        return jsonify({'error': 'Report not available for this unit'}), 403
 
     try:
         pbi_service = PowerBIService()
 
-        # Usar bi_filter_param do usuário como username
-        username = user.bi_filter_param
+        # Obter bi_filter_param da associação user-unit
+        username = user.get_bi_filter_param(unit_id)
+        if not username:
+            return jsonify({'error': 'No bi_filter_param found for this user-unit combination'}), 400
 
         # Roles fixo
         roles = ["rls_unidades"]

@@ -2,12 +2,18 @@ from datetime import datetime
 from app import db
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Tabela de associação N:N entre usuários e unidades
-user_units = db.Table('user_units',
-    db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
-    db.Column('unit_id', db.Integer, db.ForeignKey('units.id'), primary_key=True),
-    db.Column('created_at', db.DateTime, default=datetime.utcnow)
-)
+# Modelo de associação N:N entre usuários e unidades com bi_filter_param
+class UserUnit(db.Model):
+    __tablename__ = 'user_units'
+    
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    unit_id = db.Column(db.Integer, db.ForeignKey('units.id'), primary_key=True)
+    bi_filter_param = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = db.relationship('User', back_populates='user_units')
+    unit = db.relationship('Unit', back_populates='user_units')
 
 # Tabela de associação N:N entre reports e unidades
 report_units = db.Table('report_units',
@@ -24,12 +30,12 @@ class User(db.Model):
     name = db.Column(db.String(120), nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default='user')  # admin, user
-    bi_filter_param = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    units = db.relationship('Unit', secondary=user_units, back_populates='users')
+    user_units = db.relationship('UserUnit', back_populates='user', cascade='all, delete-orphan')
+    units = db.relationship('Unit', secondary='user_units', viewonly=True)
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -43,13 +49,23 @@ class User(db.Model):
             'username': self.username,
             'name': self.name,
             'role': self.role,
-            'bi_filter_param': self.bi_filter_param,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
         if include_units:
-            data['units'] = [unit.to_dict() for unit in self.units]
+            data['units'] = [
+                {
+                    **unit.to_dict(),
+                    'bi_filter_param': next((uu.bi_filter_param for uu in self.user_units if uu.unit_id == unit.id), None)
+                }
+                for unit in self.units
+            ]
         return data
+    
+    def get_bi_filter_param(self, unit_id):
+        """Get bi_filter_param for a specific unit"""
+        user_unit = next((uu for uu in self.user_units if uu.unit_id == unit_id), None)
+        return user_unit.bi_filter_param if user_unit else None
 
 class Unit(db.Model):
     __tablename__ = 'units'
@@ -61,7 +77,8 @@ class Unit(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    users = db.relationship('User', secondary=user_units, back_populates='units')
+    user_units = db.relationship('UserUnit', back_populates='unit', cascade='all, delete-orphan')
+    users = db.relationship('User', secondary='user_units', viewonly=True)
     reports = db.relationship('Report', secondary=report_units, back_populates='units')
     
     def to_dict(self, include_users=False):
