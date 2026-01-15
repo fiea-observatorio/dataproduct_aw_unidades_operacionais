@@ -45,7 +45,7 @@ def list_reports():
             # Verificar se o usuário tem acesso à unidade
             unit = Unit.query.get_or_404(unit_id)
             if unit not in user_units:
-                return jsonify({'error': 'Access denied to this unit'}), 403
+                return jsonify({'error': 'Acesso negado a esta unidade'}), 403
             reports = unit.reports
         else:
             # Buscar reports de todas as unidades do usuário
@@ -90,7 +90,7 @@ def get_report(id):
         user_unit_ids = {u.id for u in user.units}
         report_unit_ids = {u.id for u in report.units}
         if not user_unit_ids.intersection(report_unit_ids):
-            return jsonify({'error': 'Access denied'}), 403
+            return jsonify({'error': 'Acesso negado'}), 403
     
     return jsonify(report.to_dict(include_units=True)), 200
 
@@ -147,23 +147,23 @@ def create_report():
     
     required_fields = ['unit_ids', 'report_id', 'workspace_id', 'name']
     if not all(field in data for field in required_fields):
-        return jsonify({'error': 'Missing required fields'}), 400
+        return jsonify({'error': 'Campos obrigatórios ausentes'}), 400
     
     # Verificar se unit_ids é uma lista
     if not isinstance(data['unit_ids'], list) or len(data['unit_ids']) == 0:
-        return jsonify({'error': 'unit_ids must be a non-empty array'}), 400
+        return jsonify({'error': 'unit_ids deve ser um array não vazio'}), 400
     
     # Verificar se todas as unidades existem
     units = []
     for unit_id in data['unit_ids']:
         unit = Unit.query.get(unit_id)
         if not unit:
-            return jsonify({'error': f'Unit ID {unit_id} not found'}), 404
+            return jsonify({'error': f'Unidade ID {unit_id} não encontrada'}), 404
         units.append(unit)
     
     # Verificar se report_id já existe
     if Report.query.filter_by(report_id=data['report_id']).first():
-        return jsonify({'error': 'Report ID already exists'}), 409
+        return jsonify({'error': 'Report ID já existe'}), 409
     
     report = Report(
         report_id=data['report_id'],
@@ -294,17 +294,17 @@ def get_embed_config(id):
     # Obter unit_id do query parameter
     unit_id = request.args.get('unit_id', type=int)
     if not unit_id:
-        return jsonify({'error': 'unit_id is required'}), 400
+        return jsonify({'error': 'Id da unidade é obrigatório'}), 400
 
     # Verificar acesso - checar se o usuário tem acesso à unidade especificada
     user_unit_ids = [u.id for u in user.units]
     if user.role != 'admin' and unit_id not in user_unit_ids:
-        return jsonify({'error': 'Access denied to this unit'}), 403
+        return jsonify({'error': 'Acesso negado a esta unidade'}), 403
     
     # Verificar se o report está disponível para a unidade
     report_unit_ids = [u.id for u in report.units]
     if unit_id not in report_unit_ids:
-        return jsonify({'error': 'Report not available for this unit'}), 403
+        return jsonify({'error': 'Report não disponível para esta unidade'}), 403
 
     try:
         pbi_service = PowerBIService()
@@ -312,7 +312,7 @@ def get_embed_config(id):
         # Obter bi_filter_param da associação user-unit
         username = user.get_bi_filter_param(unit_id)
         if not username:
-            return jsonify({'error': 'No bi_filter_param found for this user-unit combination'}), 400
+            return jsonify({'error': 'Nenhum filtro encontrado para esta combinação de usuário-unidade'}), 400
 
         # Roles fixo
         roles = ["rls_unidades"]
@@ -329,7 +329,7 @@ def get_embed_config(id):
 
     except Exception as e:
         current_app.logger.error(f"Error getting embed config: {str(e)}")
-        return jsonify({'error': 'Failed to get embed configuration', 'details': str(e)}), 500
+        return jsonify({'error': 'Falha ao obter configuração de embed', 'details': str(e)}), 500
 
 
 @bp.route('/workspace/<workspace_id>/list', methods=['GET'])
@@ -391,4 +391,4 @@ def list_workspace_reports(workspace_id):
     
     except Exception as e:
         current_app.logger.error(f"Error fetching workspace reports: {str(e)}")
-        return jsonify({'error': 'Failed to fetch reports from workspace', 'details': str(e)}), 500
+        return jsonify({'error': 'Falha ao buscar reports do workspace', 'details': str(e)}), 500

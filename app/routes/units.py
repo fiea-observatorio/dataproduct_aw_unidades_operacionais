@@ -65,7 +65,7 @@ def create_unit():
     data = request.get_json()
     
     if not data or not data.get('name'):
-        return jsonify({'error': 'Name is required'}), 400
+        return jsonify({'error': 'Nome é obrigatório'}), 400
     
     unit = Unit(
         name=data['name'],
@@ -213,18 +213,18 @@ def add_user_to_unit(id):
     data = request.get_json()
     
     if not data or not data.get('user_id'):
-        return jsonify({'error': 'user_id is required'}), 400
+        return jsonify({'error': 'user_id é obrigatório'}), 400
     
     user = User.query.get_or_404(data['user_id'])
     
     # Verificar se já está associado
     if user in unit.users:
-        return jsonify({'error': 'User already associated with this unit'}), 409
+        return jsonify({'error': 'Usuário já associado a esta unidade'}), 409
     
     unit.users.append(user)
     db.session.commit()
     
-    return jsonify({'message': 'User added to unit successfully'}), 200
+    return jsonify({'message': 'Usuário adicionado à unidade com sucesso'}), 200
 
 @bp.route('/<int:id>/users/<int:user_id>', methods=['DELETE'])
 @jwt_required()
@@ -258,9 +258,9 @@ def remove_user_from_unit(id, user_id):
     if user in unit.users:
         unit.users.remove(user)
         db.session.commit()
-        return jsonify({'message': 'User removed from unit successfully'}), 200
+        return jsonify({'message': 'Usuário removido da unidade com sucesso'}), 200
     
-    return jsonify({'error': 'User not associated with this unit'}), 404
+    return jsonify({'error': 'Usuário não associado a esta unidade'}), 404
 
 @bp.route('/<int:id>/users', methods=['GET'])
 @jwt_required()

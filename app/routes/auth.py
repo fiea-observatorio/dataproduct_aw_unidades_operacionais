@@ -113,7 +113,7 @@ def login():
     data = request.get_json()
     
     if not data or not data.get('username') or not data.get('password'):
-        return jsonify({'error': 'Username and password are required'}), 400
+        return jsonify({'error': 'Usuário e senha são obrigatórios'}), 400
     
     username = data['username']
     password = data['password']
@@ -121,7 +121,7 @@ def login():
     user = User.query.filter_by(username=username).first()
     
     if not user or not user.check_password(password):
-        return jsonify({'error': 'Invalid username or password'}), 401
+        return jsonify({'error': 'Usuário ou senha inválidos'}), 401
     
     # Criar tokens (identity deve ser string)
     access_token = create_access_token(identity=str(user.id))
@@ -177,6 +177,6 @@ def get_current_user():
     user = User.query.get(current_user_id)
     
     if not user:
-        return jsonify({'error': 'User not found'}), 404
+        return jsonify({'error': 'Usuário não encontrado'}), 404
     
     return jsonify(user.to_dict(include_units=True)), 200

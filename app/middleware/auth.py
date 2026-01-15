@@ -13,10 +13,10 @@ def require_role(required_role):
             user = User.query.get(current_user_id)
             
             if not user:
-                return jsonify({'error': 'User not found'}), 404
+                return jsonify({'error': 'Usuário não encontrado'}), 404
             
             if user.role != required_role and user.role != 'admin':
-                return jsonify({'error': 'Insufficient permissions'}), 403
+                return jsonify({'error': 'Permissões insuficientes'}), 403
             
             return fn(*args, **kwargs)
         return wrapper
@@ -31,7 +31,7 @@ def require_unit_access(fn):
         user = User.query.get(current_user_id)
         
         if not user:
-            return jsonify({'error': 'User not found'}), 404
+            return jsonify({'error': 'Usuário não encontrado'}), 404
         
         # Admin tem acesso a todas as unidades
         if user.role == 'admin':
@@ -43,15 +43,15 @@ def require_unit_access(fn):
             unit_id = kwargs.get('id')
         
         if not unit_id:
-            return jsonify({'error': 'Unit ID not provided'}), 400
+            return jsonify({'error': 'ID da unidade não fornecido'}), 400
         
         # Verificar se usuário pertence à unidade
         unit = Unit.query.get(unit_id)
         if not unit:
-            return jsonify({'error': 'Unit not found'}), 404
+            return jsonify({'error': 'Unidade não encontrada'}), 404
         
         if user not in unit.users:
-            return jsonify({'error': 'Access denied to this unit'}), 403
+            return jsonify({'error': 'Acesso negado a esta unidade'}), 403
         
         return fn(*args, **kwargs)
     return wrapper
