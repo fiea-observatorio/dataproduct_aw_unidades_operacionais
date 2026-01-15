@@ -109,6 +109,7 @@ class Report(db.Model):
     workspace_id = db.Column(db.String(120), nullable=False)  # Power BI Workspace ID
     dataset_id = db.Column(db.String(120))  # Power BI Dataset ID
     name = db.Column(db.String(200), nullable=False)
+    code = db.Column(db.String(120), nullable=False)
     embed_url = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -125,6 +126,7 @@ class Report(db.Model):
             'workspace_id': self.workspace_id,
             'dataset_id': self.dataset_id,
             'name': self.name,
+            'code': self.code,
             'embed_url': self.embed_url,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
@@ -134,5 +136,3 @@ class Report(db.Model):
         else:
             data['unit_ids'] = [u.id for u in self.units]
         return data
-
-
