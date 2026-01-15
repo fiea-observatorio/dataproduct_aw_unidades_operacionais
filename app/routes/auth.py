@@ -3,13 +3,12 @@ from flask_jwt_extended import (
     create_access_token, create_refresh_token,
     jwt_required, get_jwt_identity
 )
-from app import db, limiter
+from app import db
 from app.models import User
 
 bp = Blueprint('auth', __name__)
 
 # @bp.route('/register', methods=['POST'])
-# @limiter.limit("5 per hour")
 # def register():
 #     """
 #     Registro de novo usuário
@@ -72,7 +71,6 @@ bp = Blueprint('auth', __name__)
 #     }), 201
 
 @bp.route('/login', methods=['POST'])
-@limiter.limit("10 per minute")
 def login():
     """
     Login de usuário
