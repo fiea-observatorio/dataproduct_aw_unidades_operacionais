@@ -290,8 +290,8 @@ def seed_database():
             },
             {
                 "id": "47f3299a-319e-443c-8372-d528d2a15ff7",
-                "name": "Tela 16 (Planejamento e Controle da Operação)",
-                "code": "AW018",
+                "name": "Planejamento e Controle da Operação",
+                "code": "Plataforma de Gestão",
                 "units": "1, 3",
                 "step_number": "4",
             },
@@ -430,8 +430,8 @@ def seed_database():
             },
             {
                 "id": "0b594750-1f6b-4024-817f-6c35d0143b90",
-                "name": "Tela 2 (Plano de Ação)",
-                "code": "AW018",
+                "name": "Plano de Ação",
+                "code": "Plataforma de Gestão",
                 "units": "1,2,3",
                 "step_number": "6",
             },
@@ -454,7 +454,7 @@ def seed_database():
                 step_id=blocos_map[int(report_data["step_number"])].id,
                 # embed_url=f'https://app.powerbi.com/reportEmbed?reportId={report_data["id"]}',
             )
-            
+
             # Adicionar ao session primeiro
             db.session.add(report)
 
