@@ -14,16 +14,17 @@ jwt = JWTManager()
 def create_app(config_name=None):
     if config_name is None:
         config_name = os.getenv('FLASK_ENV', 'development')
-    
+
     app = Flask(__name__)
     app.config.from_object(config[config_name])
-    
+
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    CORS(app, origins=app.config['CORS_ORIGINS'])
-    
+    # CORS(app, origins=app.config['CORS_ORIGINS'])
+    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+
     # Swagger configuration
     swagger_config = {
         "headers": [],
@@ -39,7 +40,7 @@ def create_app(config_name=None):
         "swagger_ui": True,
         "specs_route": "/api/docs/"
     }
-    
+
     swagger_template = {
         "swagger": "2.0",
         "info": {
@@ -61,18 +62,18 @@ def create_app(config_name=None):
             }
         ]
     }
-    
+
     Swagger(app, config=swagger_config, template=swagger_template)
-    
+
     # Register blueprints
     from app.routes import auth, units, admin, reports, steps
-    
+
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
     app.register_blueprint(units.bp, url_prefix='/api/units')
     app.register_blueprint(reports.bp, url_prefix='/api/reports')
     # app.register_blueprint(admin.bp, url_prefix='/api/admin')
     app.register_blueprint(steps.bp, url_prefix='/api/steps')
-    
+
     # Health check endpoint
     @app.route('/health')
     def health_check():
@@ -82,9 +83,9 @@ def create_app(config_name=None):
             return {'status': 'healthy', 'database': 'connected'}, 200
         except Exception as e:
             return {'status': 'unhealthy', 'database': 'disconnected', 'error': str(e)}, 503
-    
+
     # Error handlers
     from app.utils.error_handlers import register_error_handlers
     register_error_handlers(app)
-    
+
     return app

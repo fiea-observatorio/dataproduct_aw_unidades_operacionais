@@ -213,7 +213,7 @@ def seed_database():
             },
             {
                 "id": "464355dd-b688-4ceb-a709-58c30993fa4c",
-                "name": "Consultas",
+                "name": "Suprimentos e Aquisições",
                 "code": "BI009",
                 "units": "1,2,3",
                 "step_number": "2",
@@ -229,6 +229,13 @@ def seed_database():
                 "id": "151eccfc-7fbc-4cf8-99bc-be26894b570b",
                 "name": "Metas de Vendas 2025",
                 "code": "BI251",
+                "units": "1,2,3",
+                "step_number": "3",
+            },
+            {
+                "id": "98158f34-187f-43cc-9dc2-e9dbaa8d432a",
+                "name": "Monitoramento de Cobertura 2026",
+                "code": "BI283",
                 "units": "1,2,3",
                 "step_number": "3",
             },
@@ -292,7 +299,7 @@ def seed_database():
                 "id": "47f3299a-319e-443c-8372-d528d2a15ff7",
                 "name": "Planejamento e Controle da Operação",
                 "code": "Plataforma de Gestão",
-                "units": "1, 3",
+                "units": "1,2,3",
                 "step_number": "4",
             },
             {
