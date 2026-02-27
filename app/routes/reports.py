@@ -392,3 +392,47 @@ def list_workspace_reports(workspace_id):
     except Exception as e:
         current_app.logger.error(f"Error fetching workspace reports: {str(e)}")
         return jsonify({'error': 'Falha ao buscar reports do workspace', 'details': str(e)}), 500
+
+
+@bp.route('/summary', methods=['GET'])
+@jwt_required()
+def get_general_report():
+    """
+    Obter configuração de embed para o relatório geral
+    ---
+    tags:
+      - Reports
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Configuração de embed do relatório geral
+      500:
+        description: Erro ao obter configuração
+    """
+    workspace_id = "92c6a839-193b-41b7-bde6-5a23eefe0182"
+    report_id = "b8885b3e-a968-4b4f-bb82-cfb43eec81d3"
+
+    try:
+        pbi_service = PowerBIService()
+
+        # user = get_current_user()
+        # username = user.get_bi_filter_param(1)
+        # if not username:
+        #     return jsonify({'error': 'Nenhum filtro encontrado para esta combinação de usuário-unidade'}), 400
+
+        # Roles fixo
+        roles = [""]
+
+        config = pbi_service.get_embed_config(
+            workspace_id=workspace_id,
+            report_id=report_id,
+            # username=username,
+            # roles=roles
+        )
+
+        return jsonify(config), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error getting general report config: {str(e)}")
+        return jsonify({'error': 'Falha ao obter configuração do relatório geral', 'details': str(e)}), 500
