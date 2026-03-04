@@ -121,7 +121,23 @@ class PowerBIService:
         current_app.logger.info(f"URL: {url}")
         current_app.logger.info(f"Payload: {json.dumps(payload, indent=2)}")
         
-        response = requests.post(url, headers=self.get_headers(), json=payload)
+        headers = self.get_headers()
+        response = requests.post(url, headers=headers, json=payload)
+        
+        # Se o dataset não suporta RLS, tentar novamente sem effective identity
+        if not response.ok and username and roles:
+            try:
+                error_json = response.json()
+                error_msg = error_json.get('error', {}).get('message', '')
+                if "shouldn't have effective identity" in error_msg:
+                    current_app.logger.warning(
+                        f"Dataset não suporta RLS, gerando token sem effective identity"
+                    )
+                    payload.pop("identities", None)
+                    current_app.logger.info(f"Retry Payload: {json.dumps(payload, indent=2)}")
+                    response = requests.post(url, headers=headers, json=payload)
+            except (ValueError, KeyError):
+                pass
         
         # Log da resposta
         current_app.logger.info(f"Status Code: {response.status_code}")
