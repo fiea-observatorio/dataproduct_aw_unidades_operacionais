@@ -23,7 +23,7 @@ def create_app(config_name=None):
     migrate.init_app(app, db)
     jwt.init_app(app)
     # CORS(app, origins=app.config['CORS_ORIGINS'])
-    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+    CORS(app, origins="*", supports_credentials=True)
 
     # Swagger configuration
     swagger_config = {
@@ -66,13 +66,15 @@ def create_app(config_name=None):
     Swagger(app, config=swagger_config, template=swagger_template)
 
     # Register blueprints
-    from app.routes import auth, units, admin, reports, steps
+    from app.routes import auth, units, admin, reports, steps, external, production
 
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
     app.register_blueprint(units.bp, url_prefix='/api/units')
     app.register_blueprint(reports.bp, url_prefix='/api/reports')
     # app.register_blueprint(admin.bp, url_prefix='/api/admin')
     app.register_blueprint(steps.bp, url_prefix='/api/steps')
+    app.register_blueprint(external.bp, url_prefix='/api/external')
+    app.register_blueprint(production.bp, url_prefix='/api/production')
 
     # Health check endpoint
     @app.route('/health')
