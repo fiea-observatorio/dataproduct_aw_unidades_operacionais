@@ -116,6 +116,7 @@ def create_report():
             - report_id
             - workspace_id
             - name
+            - code
           properties:
             unit_ids:
               type: array
@@ -132,6 +133,9 @@ def create_report():
               type: string
             name:
               type: string
+            code:
+              type: string
+              description: Código identificador interno do report
             embed_url:
               type: string
             step_id:
@@ -145,7 +149,7 @@ def create_report():
     """
     data = request.get_json()
     
-    required_fields = ['unit_ids', 'report_id', 'workspace_id', 'name']
+    required_fields = ['unit_ids', 'report_id', 'workspace_id', 'name', 'code']
     if not all(field in data for field in required_fields):
         return jsonify({'error': 'Campos obrigatórios ausentes'}), 400
     
@@ -170,6 +174,7 @@ def create_report():
         workspace_id=data['workspace_id'],
         dataset_id=data.get('dataset_id'),
         name=data['name'],
+        code=data['code'],
         embed_url=data.get('embed_url'),
         step_id=data.get('step_id')
     )
@@ -416,19 +421,30 @@ def get_general_report():
     try:
         pbi_service = PowerBIService()
 
-        # user = get_current_user()
-        # username = user.get_bi_filter_param(1)
-        # if not username:
-        #     return jsonify({'error': 'Nenhum filtro encontrado para esta combinação de usuário-unidade'}), 400
+        user = get_current_user()
+
+        # Obter unit_id do query parameter
+        unit_id = request.args.get('unit_id', type=int)
+        if not unit_id:
+            return jsonify({'error': 'Id da unidade é obrigatório'}), 400
+
+        # Verificar acesso - checar se o usuário tem acesso à unidade especificada
+        user_unit_ids = [u.id for u in user.units]
+        if user.role != 'admin' and unit_id not in user_unit_ids:
+            return jsonify({'error': 'Acesso negado a esta unidade'}), 403
+
+        username = user.get_bi_filter_param(unit_id)
+        if not username:
+            return jsonify({'error': 'Nenhum filtro encontrado para esta combinação de usuário-unidade'}), 400
 
         # Roles fixo
-        roles = [""]
+        roles = ["rls_unidades"]
 
         config = pbi_service.get_embed_config(
             workspace_id=workspace_id,
             report_id=report_id,
-            # username=username,
-            # roles=roles
+            username=username,
+            roles=roles
         )
 
         return jsonify(config), 200

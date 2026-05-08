@@ -50,15 +50,46 @@ UNIT_FILTERS_CONFIG = {
         ],
         "measure_filters": {
             "EP": [
-                {"value": "matriculas", "label": "Matrículas"},
+                # {"value": "matriculas", "label": "Matrículas"},
                 {"value": "hora_aluno", "label": "Hora-aluno"},
             ],
             "STI": [
                 {"value": "consultoria", "label": "Consultoria"},
                 {"value": "servicos_metrologia", "label": "Serviços em Metrologia"},
+                {"value": "horas_inovacao", "label": "Horas de Inovação"},
             ],
         },
     },
+}
+
+
+# Mapeamento username -> nomes reais em nm_unidade nas tabelas do DW.
+# Os nomes variam entre tabelas (ex.: "Unidade Senai Poço" vs
+# "Unidade Senai Poco Gustavo Paiva"), então listamos todas as variantes
+# que devem bater via IN (...). Ainda não aplicado nos cálculos.
+USER_UNIT_ALIASES = {
+    "senai.poco": [
+        "Unidade Senai Poço",
+        "Unidade Senai Poco Gustavo Paiva",
+    ],
+    "sesi.senai.benedito": [
+        "Unidade Sesi/senai Benedito Bentes",
+        "Unidade Senai Benedito Bentes Carlos Guido Ferrario Lobo",
+        "ESCOLA SESI BENEDITO BENTES CARLOS GUIDO FERRARIO LOBO",
+    ],
+    "sesi.senai.arapiraca": [
+        "Unidade Sesi/senai Arapiraca",
+        "Unidade Senai Arapiraca Jose Gomes Barbosa",
+        2784,
+    ],
+    "sesi.centro": [
+        "ESCOLA SESI CENTRO INDUSTRIAL ABELARDO LOPES",
+        "Escola Sesi Cambona",
+    ],
+    "sesi.saude.cambona": [
+        2781,
+    ],
+    "sesi.saude.tabuleiro": [2782],
 }
 
 
@@ -121,8 +152,7 @@ def get_filters():
     if not unit:
         return jsonify({'error': 'Unidade não encontrada'}), 404
 
-    # Verificar se o usuário tem acesso a esta unidade (admin tem acesso a todas)
-    if user.role != 'admin' and unit_id not in [u.id for u in user.units]:
+    if user not in unit.users:
         return jsonify({'error': 'Acesso negado a esta unidade'}), 403
 
     config = UNIT_FILTERS_CONFIG.get(unit.name)
@@ -149,6 +179,10 @@ def _calculate_eb_matriculas():
       - cd_ofertaid ∉ ('9340', '9341')
       - nm_modalidade ∈ ('Ensino Fundamental', 'Ensino Médio')
     """
+    user = get_current_user()
+    unit_aliases = USER_UNIT_ALIASES.get(user.username, []) if user else []
+    print(f"Calculando EB Matrículas para usuário {user.username} com aliases de unidade: {unit_aliases}")
+
     with dw_engine.connect() as conn:
         meta_stmt = select(
             func.sum(fato_producao_metaofertaeb.c.qt_alunos)
@@ -158,6 +192,7 @@ def _calculate_eb_matriculas():
                 fato_producao_metaofertaeb.c.nm_modalidade.in_(
                     ['Ensino Fundamental', 'Ensino Médio']
                 ),
+                fato_producao_metaofertaeb.c.nm_unidade.in_(unit_aliases),
             )
         )
         total_alunos = conn.execute(meta_stmt).scalar() or 0
@@ -186,12 +221,13 @@ def _calculate_eb_matriculas():
             and_(
                 func.extract("year", fato_producao_ebdr.c.dt_inicial) == current_year,
                 fato_producao_ebdr.c.nm_curso.in_(cursos_ensino_medio + cursos_ensino_fundamental),
+                fato_producao_ebdr.c.cd_unidade.in_(unit_aliases),
             )
         )
 
-        realizado = conn.execute(realizado_stmt).scalar() or 0
+        realizado = int(conn.execute(realizado_stmt).scalar() or 0)
 
-    resultado = (realizado / meta) if meta else 0
+    resultado = round((realizado / meta) * 100, 2) if meta else 0
 
     return {
         'meta': meta,
@@ -214,6 +250,9 @@ def _calculate_eb_hora_aluno():
       - metaofertaeb: cd_ofertaid ∉ ('9340','9341'), nm_modalidade ∈ ('Ensino Fundamental','Ensino Médio')
       - ebdr: nm_curso ∈ lista fixa de cursos EB
     """
+    user = get_current_user()
+    unit_aliases = USER_UNIT_ALIASES.get(user.username, []) if user else []
+
     with dw_engine.connect() as conn:
         meta_stmt = select(
             func.sum(fato_producao_metaofertaeb.c.nr_producao)
@@ -223,9 +262,10 @@ def _calculate_eb_hora_aluno():
                 fato_producao_metaofertaeb.c.nm_modalidade.in_(
                     ['Ensino Fundamental', 'Ensino Médio']
                 ),
+                fato_producao_metaofertaeb.c.nm_unidade.in_(unit_aliases),
             )
         )
-        meta = conn.execute(meta_stmt).scalar() or 0
+        meta = int(conn.execute(meta_stmt).scalar() or 0)
 
         current_year = datetime.now().year
 
@@ -250,12 +290,13 @@ def _calculate_eb_hora_aluno():
             and_(
                 func.extract("year", fato_producao_ebdr.c.dt_inicial) == current_year,
                 fato_producao_ebdr.c.nm_curso.in_(cursos_ensino_medio + cursos_ensino_fundamental),
+                fato_producao_ebdr.c.cd_unidade.in_(unit_aliases),
             )
         )
 
-        realizado = conn.execute(realizado_stmt).scalar() or 0
+        realizado = int(conn.execute(realizado_stmt).scalar() or 0)
 
-    resultado = (realizado / meta) if meta else 0
+    resultado = round((realizado / meta) * 100, 2) if meta else 0
 
     return {
         'meta': meta,
@@ -277,11 +318,16 @@ def _calculate_ep_hora_aluno():
       - nm_unidade ∉ ('Cep - Jackson Monteiro Ferreira', 'Cep - Napoleão Barbosa')
       - dt_inicial > 2022-12-31
     """
+    user = get_current_user()
+    unit_aliases = USER_UNIT_ALIASES.get(user.username, []) if user else []
+
     with dw_engine.connect() as conn:
         meta_stmt = select(
             func.sum(fato_producao_metaproducaoep.c.nr_horaalunomensalalocada)
+        ).where(
+            fato_producao_metaproducaoep.c.nm_unidade.in_(unit_aliases)
         )
-        meta = conn.execute(meta_stmt).scalar() or 0
+        meta = int(conn.execute(meta_stmt).scalar() or 0)
 
         current_year = datetime.now().year
         realizado_stmt = select(
@@ -294,11 +340,12 @@ def _calculate_ep_hora_aluno():
                     'Cep - Napoleão Barbosa',
                 ]),
                 fato_producao_epdr.c.dt_inicial > datetime(2022, 12, 31).date(),
+                fato_producao_epdr.c.nm_unidade.in_(unit_aliases),
             )
         )
-        realizado = conn.execute(realizado_stmt).scalar() or 0
+        realizado = int(conn.execute(realizado_stmt).scalar() or 0)
 
-    resultado = (realizado / meta) if meta else 0
+    resultado = round((realizado / meta) * 100, 2) if meta else 0
 
     return {
         'meta': meta,
@@ -330,8 +377,14 @@ def _calculate_ssi_consultas_exames():
           dashboard, que exibe sempre o ano corrente.
       - resultado = realizado / meta (0 quando meta vazia)
     """
-    meta = sum_previsao_ssi_producao() or 0
+    meta = int(sum_previsao_ssi_producao() or 0)
     current_year = datetime.now().year
+
+    user = get_current_user()
+    unit_aliases = USER_UNIT_ALIASES.get(user.username, []) if user else []
+    cd_filiais = [a for a in unit_aliases if isinstance(a, int)] 
+
+    print(f"Calculando SSI Consultas e Exames para usuário {user.username} com aliases de unidade: {unit_aliases} e cd_filiais: {cd_filiais}")
 
     with dw_engine.connect() as conn:
         complementar_stmt = select(
@@ -347,6 +400,7 @@ def _calculate_ssi_consultas_exames():
                 ]),
                 fato_producao_saudecomplementar.c.nk_idlanc.isnot(None),
                 func.extract('year', fato_producao_saudecomplementar.c.dt_data) == current_year,
+                fato_producao_saudecomplementar.c.cd_filial.in_(cd_filiais),
             )
         )
         ocupacional_stmt = select(
@@ -357,13 +411,14 @@ def _calculate_ssi_consultas_exames():
                 fato_producao_saudeocupacional.c.nm_item != 'PRE-CONSULTA',
                 fato_producao_saudeocupacional.c.nk_idlanc.isnot(None),
                 func.extract('year', fato_producao_saudeocupacional.c.dt_data) == current_year,
+                fato_producao_saudeocupacional.c.cd_filial.in_(cd_filiais),
             )
         )
         realizado_comp = conn.execute(complementar_stmt).scalar() or 0
         realizado_ocup = conn.execute(ocupacional_stmt).scalar() or 0
 
-    realizado = realizado_comp + realizado_ocup
-    resultado = (realizado / meta) if meta else 0
+    realizado = int(realizado_comp + realizado_ocup)
+    resultado = round((realizado / meta) * 100, 2) if meta else 0
 
     return {
         'meta': meta,
@@ -385,7 +440,7 @@ def _sti_meta(natureza):
         ).where(
             fato_producao_metaofertasti.c.nm_naturezaprodutosuperior == natureza
         )
-        return conn.execute(stmt).scalar() or 0
+        return int(conn.execute(stmt).scalar() or 0)
 
 
 # Realizado e resultado do STI dependem da planilha SharePoint
@@ -414,6 +469,16 @@ def _calculate_sti_servicos_metrologia():
     }
 
 
+def _calculate_sti_horas_inovacao():
+    """STI Horas de Inovação — em construção; aguardando definição da fonte."""
+    return {
+        'meta': _STI_REALIZADO_PLACEHOLDER,
+        'realizado': _STI_REALIZADO_PLACEHOLDER,
+        'resultado': _STI_REALIZADO_PLACEHOLDER,
+        'year': datetime.now().year,
+    }
+
+
 # Mapa de calculadoras por (unit_name, business_filter, measure).
 # business_filter é None quando a unidade não tem filtro de negócio.
 _SUMMARY_CALCULATORS = {
@@ -423,6 +488,7 @@ _SUMMARY_CALCULATORS = {
     ('SENAI Educação Profissional e STI', 'EP', 'hora_aluno'): _calculate_ep_hora_aluno,
     ('SENAI Educação Profissional e STI', 'STI', 'consultoria'): _calculate_sti_consultoria,
     ('SENAI Educação Profissional e STI', 'STI', 'servicos_metrologia'): _calculate_sti_servicos_metrologia,
+    ('SENAI Educação Profissional e STI', 'STI', 'horas_inovacao'): _calculate_sti_horas_inovacao,
 }
 
 
@@ -499,7 +565,7 @@ def get_production_summary():
     if not unit:
         return jsonify({'error': 'Unidade não encontrada'}), 404
 
-    if user.role != 'admin' and unit_id not in [u.id for u in user.units]:
+    if user not in unit.users:
         return jsonify({'error': 'Acesso negado a esta unidade'}), 403
 
     config = UNIT_FILTERS_CONFIG.get(unit.name)

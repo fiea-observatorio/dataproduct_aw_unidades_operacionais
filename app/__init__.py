@@ -3,6 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flasgger import Swagger
 from config.config import config
 import os
@@ -10,6 +12,10 @@ import os
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri=os.getenv('RATE_LIMIT_STORAGE_URI', 'memory://'),
+)
 
 def create_app(config_name=None):
     if config_name is None:
@@ -22,6 +28,7 @@ def create_app(config_name=None):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+    limiter.init_app(app)
     # CORS(app, origins=app.config['CORS_ORIGINS'])
     CORS(app, origins="*", supports_credentials=True)
 

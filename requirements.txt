@@ -3,6 +3,7 @@ Flask-SQLAlchemy
 Flask-Migrate
 Flask-JWT-Extended
 Flask-CORS
+Flask-Limiter
 python-dotenv
 PyJWT
 bcrypt

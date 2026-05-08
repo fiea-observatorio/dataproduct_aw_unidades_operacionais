@@ -233,6 +233,13 @@ def seed_database():
                 "step_number": "3",
             },
             {
+                "id": "05240b29-261c-42e0-90fc-29efa8017882",
+                "name": "Metas de Vendas 2026",
+                "code": "BI286",
+                "units": "1,2,3",
+                "step_number": "3",
+            },
+            {
                 "id": "98158f34-187f-43cc-9dc2-e9dbaa8d432a",
                 "name": "Monitoramento de Cobertura 2026",
                 "code": "BI283",

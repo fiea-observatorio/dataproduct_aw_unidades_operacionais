@@ -3,7 +3,7 @@ from flask_jwt_extended import (
     create_access_token, create_refresh_token,
     jwt_required, get_jwt_identity
 )
-from app import db
+from app import db, limiter
 from app.models import User
 
 bp = Blueprint('auth', __name__)
@@ -71,6 +71,7 @@ bp = Blueprint('auth', __name__)
 #     }), 201
 
 @bp.route('/login', methods=['POST'])
+@limiter.limit("5 per minute; 20 per hour")
 def login():
     """
     Login de usuário
@@ -107,6 +108,8 @@ def login():
               type: object
       401:
         description: Credenciais inválidas
+      429:
+        description: Limite de tentativas excedido
     """
     data = request.get_json()
     
