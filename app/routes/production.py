@@ -9,6 +9,7 @@ from app.dw_models import (
     fato_producao_ebdr,
     fato_producao_epdr,
     fato_producao_metaofertaeb,
+    fato_producao_metaofertassi,
     fato_producao_metaofertasti,
     fato_producao_metaproducaoep,
     fato_producao_saudecomplementar,
@@ -16,7 +17,6 @@ from app.dw_models import (
 )
 from app.middleware.auth import get_current_user
 from app.models import Unit
-from app.services.solucao360_service import sum_previsao_ssi_producao
 
 bp = Blueprint('production', __name__)
 
@@ -91,6 +91,34 @@ USER_UNIT_ALIASES = {
     ],
     "sesi.saude.tabuleiro": [2782],
 }
+
+
+# Mapeamento username -> nomes em `nm_unidade` na tabela
+# dw.fato_producao_metaofertassi. Replica o passo "Coluna Condicional
+# Adicionada" do Power Query (cod_unidade) — só que filtra direto pelo nome
+# em vez de mapear pra código.
+SSI_METAOFERTASSI_UNIDADES_BY_USER = {
+    "sesi.senai.arapiraca": ["Unidade Sesi/senai Arapiraca"],
+    "sesi.saude.cambona": ["Unidade Cambona Saúde"],
+    "sesi.saude.tabuleiro": ["Unidade Sesi Tabuleiro"],
+}
+
+# Filtros do Power Query sobre a previsão SSI em dw.fato_producao_metaofertassi.
+_SSI_PRODUTO_PREFIX = '103'
+_SSI_NOME_PRODUTO_EXCLUIDOS = [
+    'AULA DE RELAXAMENTO',
+    'AULÃO DE DANÇA',
+    'BLITZ POSTURAL',
+    'CAFÉ DA MANHÃ COM NUTRICIONISTA',
+    'GINCANAS CORPORATIVAS',
+    'GINÁSTICA FUNCIONAL',
+    'GINÁSTICA LABORAL',
+    'PCMSO - PROGRAMA DE CONTROLE MÉDICO DE SAÚDE OCUPACIONAL',
+    'PILATES SOLO',
+    'PROFISSIONAL DE NÍVEL SUPERIOR/TÉCNICO',
+    'QUICK MASSAGE',
+    'YOGA E MEDITAÇÃO',
+]
 
 
 @bp.route('/filters', methods=['GET'])
@@ -359,12 +387,12 @@ def _calculate_ssi_consultas_exames():
     """Meta, realizado e resultado para SESI Saúde — Consultas e exames (SSI).
 
     Replica os cálculos em DAX:
-      - ssi_meta = SUM(fato_previsaossi360[Producao])
-          A tabela fato_previsaossi360 vem da API Solução 360 (fonte de dados
-          CDS_RELORC_OFERTA_004). Aplica-se o filtro do Power Query:
-            - Produto inicia com "103"
-            - NomeProduto ∉ (lista de exclusões do PQ)
-          Soma todas as colunas Producao{Mês} já com os filtros aplicados.
+      - ssi_meta = SUM(fato_producao_metaofertassi[nr_producao])
+          Filtros replicados do Power Query:
+            - cd_produto inicia com "103"
+            - nm_produto ∉ (lista de exclusões do PQ)
+            - nm_unidade ∈ (lista por usuário)
+            - YEAR(dt_calendario) = ano vigente
       - ssi_realizado = SUM(producao_ssi_real[qt_qtde]) onde
           producao_ssi_real = UNION(saudecomplementar, saudeocupacional)
           Filtros replicados do Power Query:
@@ -377,16 +405,30 @@ def _calculate_ssi_consultas_exames():
           dashboard, que exibe sempre o ano corrente.
       - resultado = realizado / meta (0 quando meta vazia)
     """
-    meta = int(sum_previsao_ssi_producao() or 0)
     current_year = datetime.now().year
 
     user = get_current_user()
     unit_aliases = USER_UNIT_ALIASES.get(user.username, []) if user else []
-    cd_filiais = [a for a in unit_aliases if isinstance(a, int)] 
+    cd_filiais = [a for a in unit_aliases if isinstance(a, int)]
+    unidades_metaofertassi = (
+        SSI_METAOFERTASSI_UNIDADES_BY_USER.get(user.username, []) if user else []
+    )
 
-    print(f"Calculando SSI Consultas e Exames para usuário {user.username} com aliases de unidade: {unit_aliases} e cd_filiais: {cd_filiais}")
+    print(f"Calculando SSI Consultas e Exames para usuário {user.username} com aliases de unidade: {unit_aliases}, cd_filiais: {cd_filiais}, unidades metaofertassi: {unidades_metaofertassi}")
 
     with dw_engine.connect() as conn:
+        meta_stmt = select(
+            func.sum(fato_producao_metaofertassi.c.nr_producao)
+        ).where(
+            and_(
+                fato_producao_metaofertassi.c.cd_produto.like(f'{_SSI_PRODUTO_PREFIX}%'),
+                fato_producao_metaofertassi.c.nm_produto.notin_(_SSI_NOME_PRODUTO_EXCLUIDOS),
+                fato_producao_metaofertassi.c.nm_unidade.in_(unidades_metaofertassi),
+                func.extract('year', fato_producao_metaofertassi.c.dt_calendario) == current_year,
+            )
+        )
+        meta = int(conn.execute(meta_stmt).scalar() or 0)
+
         complementar_stmt = select(
             func.sum(fato_producao_saudecomplementar.c.qt_qtde)
         ).where(

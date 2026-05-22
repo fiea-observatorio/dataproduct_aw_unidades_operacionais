@@ -8,10 +8,12 @@
       "Bash(curl -v -X POST http://localhost:5000/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"sesi.centro\",\"password\":\"1243\"}')",
       "Bash(docker exec *)",
       "Bash(MSYS_NO_PATHCONV=1 docker exec determined_aryabhata sh -c 'sed -n \"110,135p\" /app/app/routes/auth.py')",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('app/routes/production.py'\\).read\\(\\)\\); ast.parse\\(open\\('app/services/solucao360_service.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('app/routes/production.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('app/services/solucao360_service.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('app/services/solucao360_service.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "PowerShell(python -c \"import ast; ast.parse\\(open\\('app/routes/production.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(rm \"app/services/solucao360_service.py\" \"app/services/__pycache__/solucao360_service.cpython-313.pyc\" \"/c/Users/Arthur/.claude/projects/c--Users-Arthur-Gitrepos-unid-oper/memory/solucao360_auth.md\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Arthur\\.claude\\projects\\c--Users-Arthur-Gitrepos-unid-oper\\memory"
     ]
   }
 }
