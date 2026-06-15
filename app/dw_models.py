@@ -102,12 +102,13 @@ fato_producao_metaofertasti = Table(
     autoload_with=dw_engine
 )
 
-# Colunas: cd_idatendimento, cd_idproposta, cd_cpfcnpj, nm_tituloatendimento,
-#   vl_totalfaturamento, nm_fontepagadora, ds_produtocategoria, ds_produtolinha, nm_produto,
-#   dt_apropriacao, qt_dehorasensaioscalibracoes, nm_unidadeoperacional,
-#   st_statusatendimento, nm_titulo, dt_emissao, dt_conclusao, vl_producaoestimada,
-#   vl_receitaestimada, nm_agenciafomento, nm_fantasia, nm_razao_social, qt_funcionarios,
-#   ds_porte_cliente, dt_carga
+# Colunas principais (extraídas via autoload em 2026-05): cd_atendimentoid,
+#   nm_cliente, nm_razaosocial, cd_clienteid, dt_conclusao, dt_apropriacao,
+#   ds_unidade, sg_unidadeabreviacao, nm_unidadecarteira, ds_produtolinha,
+#   ds_produtocategoria, nm_produtoregional, ds_produtonacional, st_atendimento,
+#   ds_atendimentostatus, qt_apropriadas (quantidade lançada — horas para
+#   serviços não-Metrologia; nº de serviços para Metrologia), qt_relatorio,
+#   nr_funcionarios, nr_portecliente, dt_carga.
 fato_producao_stisgt = Table(
     'fato_producao_stisgt',
     dw_metadata,

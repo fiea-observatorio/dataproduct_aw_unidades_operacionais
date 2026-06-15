@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, bindparam, case, func, or_, select, text
 
 from app.dw_models import (
     dw_engine,
@@ -54,9 +54,8 @@ UNIT_FILTERS_CONFIG = {
                 {"value": "hora_aluno", "label": "Hora-aluno"},
             ],
             "STI": [
-                {"value": "consultoria", "label": "Consultoria"},
-                {"value": "servicos_metrologia", "label": "Serviços em Metrologia"},
-                {"value": "horas_inovacao", "label": "Horas de Inovação"},
+                {"value": "horas", "label": "Horas"},
+                {"value": "servico", "label": "Serviço"},
             ],
         },
     },
@@ -470,55 +469,178 @@ def _calculate_ssi_consultas_exames():
     }
 
 
-def _sti_meta(natureza):
-    """Soma da meta STI por natureza (Consultoria / Metrologia).
+# Ofertas excluídas da meta STI conforme Power Query.
+_STI_OFERTAID_EXCLUIDOS = ['9221', '9319', '9485']
 
-    sti_meta = SUM(fato_producao_metaofertasti[nr_producao]) onde
-    nm_naturezaprodutosuperior = natureza.
-    """
+# Cada medida agrupa um conjunto fixo de modalidades. As strings precisam
+# bater em nm_naturezaprodutosuperior (meta) e nm_modalidade (realizado,
+# derivado via CASE) — se algum vier 0, conferir os rótulos no DW.
+_STI_MEDIDA_CONFIG = {
+    'horas': {
+        'un_medida': 'Horas',
+        'modalidades': ['Consultoria', 'Soluções Digitais', 'Inovação e Empreendedorismo'],
+    },
+    'servico': {
+        'un_medida': 'Serviço',
+        'modalidades': ['Metrologia'],
+    },
+}
+
+# Realizado STI a partir de dw.fato_producao_stisgt. Replica o Power Query
+# que normaliza casing das unidades (ds_unidade / nm_unidadecarteira) e
+# deriva nm_modalidade / un_medida / nm_unidadeajustada. Soma
+# qt_apropriadas (horas para não-Metrologia; nº de serviços para Metrologia).
+# Recorte por YEAR(dt_apropriacao) para o ano vigente.
+_STI_REALIZADO_SQL = text("""
+WITH base AS (
+    SELECT
+        TRY_CAST(qt_apropriadas AS DECIMAL(18,4)) AS qt_apropriadas,
+        dt_apropriacao,
+        CASE
+            WHEN UPPER(nm_produtoregional) LIKE N'%HUB%'
+                THEN N'Inovação e Empreendedorismo'
+            WHEN UPPER(LTRIM(RTRIM(ds_produtolinha))) = N'METROLOGIA'
+                THEN N'Metrologia'
+            WHEN UPPER(LTRIM(RTRIM(ds_produtolinha))) = N'CONSULTORIA EM TECNOLOGIA'
+                THEN N'Consultoria'
+            WHEN UPPER(LTRIM(RTRIM(ds_produtolinha))) = N'SERVIÇOS COMPLEMENTARES'
+                THEN N'Serviços Complementares'
+            WHEN UPPER(LTRIM(RTRIM(ds_produtolinha))) = N'SERVIÇOS TÉCNICOS ESPECIALIZADOS'
+                THEN N'Serviços Técnicos Especializados'
+            WHEN UPPER(LTRIM(RTRIM(nm_produtoregional))) IN (
+                N'DESENVOLVIMENTO DE SISTEMAS COMPUTACIONAIS',
+                N'DESENVOLVIMENTO DE SOFTWARES',
+                N'IMPLANTAÇÃO DE FERRAMENTA DATA WAREHOUSE',
+                N'MELHORIAS E DESENVOLVIMENTO SISTEMAS COMPUTACIONAIS',
+                N'SOLUÇÕES DIGITAIS - CIÊNCIA DE DADOS',
+                N'SOLUÇÕES DIGITAIS - LICENÇA DE USO DE SOFTWARE',
+                N'SUPORTE TÉCNICO A SISTEMAS COMPUTACIONAIS'
+            ) THEN N'Soluções Digitais'
+            ELSE ds_produtolinha
+        END AS nm_modalidade,
+        REPLACE(REPLACE(REPLACE(
+            ds_unidade,
+            N'Unidade SENAI Poço',                 N'Unidade Senai Poço'),
+            N'Unidade SESI/SENAI Benedito Bentes', N'Unidade Sesi/senai Benedito Bentes'),
+            N'Unidade SESI/SENAI Arapiraca',       N'Unidade Sesi/senai Arapiraca'
+        ) AS ds_unidade_adj,
+        REPLACE(REPLACE(REPLACE(
+            nm_unidadecarteira,
+            N'UNIDADE SENAI POÇO',                 N'Unidade Senai Poço'),
+            N'UNIDADE SESI/SENAI BENEDITO BENTES', N'Unidade Sesi/senai Benedito Bentes'),
+            N'UNIDADE SESI/SENAI ARAPIRACA',       N'Unidade Sesi/senai Arapiraca'
+        ) AS nm_unidadecarteira_adj
+    FROM dw.fato_producao_stisgt
+),
+ajustado AS (
+    SELECT
+        qt_apropriadas,
+        dt_apropriacao,
+        nm_modalidade,
+        CASE WHEN nm_modalidade = N'Metrologia' THEN N'Serviço' ELSE N'Horas' END AS un_medida,
+        CASE
+            WHEN nm_modalidade = N'Metrologia' THEN
+                CASE
+                    WHEN nm_unidadecarteira_adj IS NULL
+                         OR LTRIM(RTRIM(nm_unidadecarteira_adj)) = N''
+                        THEN ds_unidade_adj
+                    ELSE nm_unidadecarteira_adj
+                END
+            ELSE ds_unidade_adj
+        END AS nm_unidadeajustada
+    FROM base
+)
+SELECT MONTH(dt_apropriacao) AS mes,
+       COALESCE(SUM(qt_apropriadas), 0) AS soma
+FROM ajustado
+WHERE un_medida = :un_medida
+  AND nm_modalidade IN :modalidades
+  AND nm_unidadeajustada IN :unidades
+  AND YEAR(dt_apropriacao) = :ano
+GROUP BY MONTH(dt_apropriacao)
+ORDER BY MONTH(dt_apropriacao)
+""").bindparams(
+    bindparam('modalidades', expanding=True),
+    bindparam('unidades', expanding=True),
+)
+
+
+def _sti_meta_por_mes(un_medida, modalidades_db, unit_aliases_str, current_year):
+    """Retorna {mes: soma} de nr_producao do meta STI agrupado por mês."""
+    if not modalidades_db or not unit_aliases_str:
+        return {}
+    un_medida_expr = case(
+        (fato_producao_metaofertasti.c.nm_naturezaprodutosuperior == 'Metrologia', 'Serviço'),
+        else_='Horas',
+    )
+    mes_expr = func.extract('month', fato_producao_metaofertasti.c.dt_calendario)
     with dw_engine.connect() as conn:
         stmt = select(
-            func.sum(fato_producao_metaofertasti.c.nr_producao)
+            mes_expr.label('mes'),
+            func.sum(fato_producao_metaofertasti.c.nr_producao).label('soma'),
         ).where(
-            fato_producao_metaofertasti.c.nm_naturezaprodutosuperior == natureza
-        )
-        return int(conn.execute(stmt).scalar() or 0)
+            and_(
+                fato_producao_metaofertasti.c.cd_ofertaid.notin_(_STI_OFERTAID_EXCLUIDOS),
+                un_medida_expr == un_medida,
+                fato_producao_metaofertasti.c.nm_naturezaprodutosuperior.in_(modalidades_db),
+                fato_producao_metaofertasti.c.nm_unidade.in_(unit_aliases_str),
+                func.extract('year', fato_producao_metaofertasti.c.dt_calendario) == current_year,
+            )
+        ).group_by(mes_expr).order_by(mes_expr)
+        return {int(row.mes): float(row.soma or 0) for row in conn.execute(stmt)}
 
 
-# Realizado e resultado do STI dependem da planilha SharePoint
-# (relatorio_produção.xlsx em sistemafiea.sharepoint.com/sites/observatorioregional),
-# que ainda não está integrada — devolvemos placeholder até a fonte estar disponível.
-_STI_REALIZADO_PLACEHOLDER = 'Em construção'
+def _sti_realizado_por_mes(un_medida, modalidades_db, unit_aliases_str, current_year):
+    """Retorna {mes: soma} de qt_apropriadas do realizado STI agrupado por mês."""
+    if not modalidades_db or not unit_aliases_str:
+        return {}
+    with dw_engine.connect() as conn:
+        rows = conn.execute(_STI_REALIZADO_SQL, {
+            'un_medida': un_medida,
+            'modalidades': modalidades_db,
+            'unidades': unit_aliases_str,
+            'ano': current_year,
+        }).fetchall()
+        return {int(r.mes): float(r.soma or 0) for r in rows}
 
 
-def _calculate_sti_consultoria():
-    """STI Consultoria — apenas meta; realizado pendente de integração SharePoint."""
+def _calculate_sti(medida_key):
+    """Meta, realizado e resultado STI por medida, com breakdown por mês.
+
+    Medida Horas engloba Consultoria + Soluções Digitais + Inovação e
+    Empreendedorismo. Medida Serviço engloba apenas Metrologia.
+    """
+    current_year = datetime.now().year
+
+    user = get_current_user()
+    unit_aliases = USER_UNIT_ALIASES.get(user.username, []) if user else []
+    unit_aliases_str = [a for a in unit_aliases if isinstance(a, str)]
+
+    cfg = _STI_MEDIDA_CONFIG[medida_key]
+    un_medida = cfg['un_medida']
+    modalidades_db = cfg['modalidades']
+
+    meta_por_mes = _sti_meta_por_mes(un_medida, modalidades_db, unit_aliases_str, current_year)
+    realizado_por_mes = _sti_realizado_por_mes(un_medida, modalidades_db, unit_aliases_str, current_year)
+
+    meta_total = sum(meta_por_mes.values())
+    realizado_total = sum(realizado_por_mes.values())
+    resultado = round((realizado_total / meta_total) * 100, 2) if meta_total else 0
+
     return {
-        'meta': _sti_meta('Consultoria'),
-        'realizado': _STI_REALIZADO_PLACEHOLDER,
-        'resultado': _STI_REALIZADO_PLACEHOLDER,
-        'year': datetime.now().year,
+        'meta': int(round(meta_total)),
+        'realizado': int(round(realizado_total)),
+        'resultado': resultado,
+        'year': current_year,
     }
 
 
-def _calculate_sti_servicos_metrologia():
-    """STI Metrologia — apenas meta; realizado pendente de integração SharePoint."""
-    return {
-        'meta': _sti_meta('Metrologia'),
-        'realizado': _STI_REALIZADO_PLACEHOLDER,
-        'resultado': _STI_REALIZADO_PLACEHOLDER,
-        'year': datetime.now().year,
-    }
+def _calculate_sti_horas():
+    return _calculate_sti('horas')
 
 
-def _calculate_sti_horas_inovacao():
-    """STI Horas de Inovação — em construção; aguardando definição da fonte."""
-    return {
-        'meta': _STI_REALIZADO_PLACEHOLDER,
-        'realizado': _STI_REALIZADO_PLACEHOLDER,
-        'resultado': _STI_REALIZADO_PLACEHOLDER,
-        'year': datetime.now().year,
-    }
+def _calculate_sti_servico():
+    return _calculate_sti('servico')
 
 
 # Mapa de calculadoras por (unit_name, business_filter, measure).
@@ -528,9 +650,8 @@ _SUMMARY_CALCULATORS = {
     ('SESI Educação Básica', None, 'hora_aluno'): _calculate_eb_hora_aluno,
     ('SESI Saúde', None, 'consultas_exames'): _calculate_ssi_consultas_exames,
     ('SENAI Educação Profissional e STI', 'EP', 'hora_aluno'): _calculate_ep_hora_aluno,
-    ('SENAI Educação Profissional e STI', 'STI', 'consultoria'): _calculate_sti_consultoria,
-    ('SENAI Educação Profissional e STI', 'STI', 'servicos_metrologia'): _calculate_sti_servicos_metrologia,
-    ('SENAI Educação Profissional e STI', 'STI', 'horas_inovacao'): _calculate_sti_horas_inovacao,
+    ('SENAI Educação Profissional e STI', 'STI', 'horas'): _calculate_sti_horas,
+    ('SENAI Educação Profissional e STI', 'STI', 'servico'): _calculate_sti_servico,
 }
 
 
