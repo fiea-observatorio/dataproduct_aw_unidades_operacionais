@@ -70,6 +70,7 @@ USER_UNIT_ALIASES = {
     "senai.poco": [
         "Unidade Senai Poço",
         "Unidade Senai Poco Gustavo Paiva",
+        "Soluções Digitais Unidade Senai Poço",
     ],
     "sesi.senai.benedito": [
         "Unidade Sesi/senai Benedito Bentes",
@@ -478,7 +479,7 @@ _STI_OFERTAID_EXCLUIDOS = ['9221', '9319', '9485']
 _STI_MEDIDA_CONFIG = {
     'horas': {
         'un_medida': 'Horas',
-        'modalidades': ['Consultoria', 'Soluções Digitais', 'Inovação e Empreendedorismo'],
+        'modalidades': ['Consultoria', 'Soluções Digitais', 'Inovação e Empreendedorismo', 'Pesquisa'],
     },
     'servico': {
         'un_medida': 'Serviço',
@@ -494,7 +495,7 @@ _STI_MEDIDA_CONFIG = {
 _STI_REALIZADO_SQL = text("""
 WITH base AS (
     SELECT
-        TRY_CAST(qt_apropriadas AS DECIMAL(18,4)) AS qt_apropriadas,
+        TRY_CAST(qt_apropriadas AS INT) AS qt_apropriadas,
         dt_apropriacao,
         CASE
             WHEN UPPER(nm_produtoregional) LIKE N'%HUB%'
@@ -507,6 +508,8 @@ WITH base AS (
                 THEN N'Serviços Complementares'
             WHEN UPPER(LTRIM(RTRIM(ds_produtolinha))) = N'SERVIÇOS TÉCNICOS ESPECIALIZADOS'
                 THEN N'Serviços Técnicos Especializados'
+            WHEN UPPER(LTRIM(RTRIM(ds_produtolinha))) = N'PESQUISA'
+                THEN N'Pesquisa'
             WHEN UPPER(LTRIM(RTRIM(nm_produtoregional))) IN (
                 N'DESENVOLVIMENTO DE SISTEMAS COMPUTACIONAIS',
                 N'DESENVOLVIMENTO DE SOFTWARES',
@@ -518,18 +521,8 @@ WITH base AS (
             ) THEN N'Soluções Digitais'
             ELSE ds_produtolinha
         END AS nm_modalidade,
-        REPLACE(REPLACE(REPLACE(
-            ds_unidade,
-            N'Unidade SENAI Poço',                 N'Unidade Senai Poço'),
-            N'Unidade SESI/SENAI Benedito Bentes', N'Unidade Sesi/senai Benedito Bentes'),
-            N'Unidade SESI/SENAI Arapiraca',       N'Unidade Sesi/senai Arapiraca'
-        ) AS ds_unidade_adj,
-        REPLACE(REPLACE(REPLACE(
-            nm_unidadecarteira,
-            N'UNIDADE SENAI POÇO',                 N'Unidade Senai Poço'),
-            N'UNIDADE SESI/SENAI BENEDITO BENTES', N'Unidade Sesi/senai Benedito Bentes'),
-            N'UNIDADE SESI/SENAI ARAPIRACA',       N'Unidade Sesi/senai Arapiraca'
-        ) AS nm_unidadecarteira_adj
+        ds_unidade,
+        nm_unidadecarteira
     FROM dw.fato_producao_stisgt
 ),
 ajustado AS (
@@ -541,24 +534,25 @@ ajustado AS (
         CASE
             WHEN nm_modalidade = N'Metrologia' THEN
                 CASE
-                    WHEN nm_unidadecarteira_adj IS NULL
-                         OR LTRIM(RTRIM(nm_unidadecarteira_adj)) = N''
-                        THEN ds_unidade_adj
-                    ELSE nm_unidadecarteira_adj
+                    WHEN nm_unidadecarteira IS NULL
+                         OR LTRIM(RTRIM(nm_unidadecarteira)) = N''
+                        THEN ds_unidade
+                    ELSE nm_unidadecarteira
                 END
-            ELSE ds_unidade_adj
+            ELSE ds_unidade
         END AS nm_unidadeajustada
     FROM base
 )
 SELECT MONTH(dt_apropriacao) AS mes,
+       nm_modalidade AS modalidade,
        COALESCE(SUM(qt_apropriadas), 0) AS soma
 FROM ajustado
 WHERE un_medida = :un_medida
   AND nm_modalidade IN :modalidades
   AND nm_unidadeajustada IN :unidades
   AND YEAR(dt_apropriacao) = :ano
-GROUP BY MONTH(dt_apropriacao)
-ORDER BY MONTH(dt_apropriacao)
+GROUP BY MONTH(dt_apropriacao), nm_modalidade
+ORDER BY MONTH(dt_apropriacao), nm_modalidade
 """).bindparams(
     bindparam('modalidades', expanding=True),
     bindparam('unidades', expanding=True),
@@ -590,8 +584,8 @@ def _sti_meta_por_mes(un_medida, modalidades_db, unit_aliases_str, current_year)
         return {int(row.mes): float(row.soma or 0) for row in conn.execute(stmt)}
 
 
-def _sti_realizado_por_mes(un_medida, modalidades_db, unit_aliases_str, current_year):
-    """Retorna {mes: soma} de qt_apropriadas do realizado STI agrupado por mês."""
+def _sti_realizado_por_mes_modalidade(un_medida, modalidades_db, unit_aliases_str, current_year):
+    """Retorna {mes: {modalidade: soma}} de qt_apropriadas do realizado STI."""
     if not modalidades_db or not unit_aliases_str:
         return {}
     with dw_engine.connect() as conn:
@@ -601,7 +595,10 @@ def _sti_realizado_por_mes(un_medida, modalidades_db, unit_aliases_str, current_
             'unidades': unit_aliases_str,
             'ano': current_year,
         }).fetchall()
-        return {int(r.mes): float(r.soma or 0) for r in rows}
+        por_mes = {}
+        for r in rows:
+            por_mes.setdefault(int(r.mes), {})[r.modalidade] = float(r.soma or 0)
+        return por_mes
 
 
 def _calculate_sti(medida_key):
@@ -621,17 +618,35 @@ def _calculate_sti(medida_key):
     modalidades_db = cfg['modalidades']
 
     meta_por_mes = _sti_meta_por_mes(un_medida, modalidades_db, unit_aliases_str, current_year)
-    realizado_por_mes = _sti_realizado_por_mes(un_medida, modalidades_db, unit_aliases_str, current_year)
+    realizado_por_mes_mod = _sti_realizado_por_mes_modalidade(
+        un_medida, modalidades_db, unit_aliases_str, current_year
+    )
 
     meta_total = sum(meta_por_mes.values())
-    realizado_total = sum(realizado_por_mes.values())
+    realizado_total = sum(
+        soma for por_mod in realizado_por_mes_mod.values() for soma in por_mod.values()
+    )
     resultado = round((realizado_total / meta_total) * 100, 2) if meta_total else 0
+
+    meses = []
+    for mes in range(1, 13):
+        por_mod = realizado_por_mes_mod.get(mes, {})
+        meses.append({
+            'mes': mes,
+            'meta': int(round(meta_por_mes.get(mes, 0))),
+            'realizado': int(round(sum(por_mod.values()))),
+            'realizado_modalidades': {
+                modalidade: int(round(por_mod.get(modalidade, 0)))
+                for modalidade in modalidades_db
+            },
+        })
 
     return {
         'meta': int(round(meta_total)),
         'realizado': int(round(realizado_total)),
         'resultado': resultado,
         'year': current_year,
+        'meses': meses,
     }
 
 
