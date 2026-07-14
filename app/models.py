@@ -128,6 +128,7 @@ class Report(db.Model):
     name = db.Column(db.String(200), nullable=False)
     code = db.Column(db.String(120), nullable=False)
     embed_url = db.Column(db.String(500))
+    rls_enabled = db.Column(db.Boolean, nullable=False, default=True, server_default=db.text('1'))  # Se False, não envia effective identity (RLS) para este painel
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -145,6 +146,7 @@ class Report(db.Model):
             'name': self.name,
             'code': self.code,
             'embed_url': self.embed_url,
+            'rls_enabled': self.rls_enabled,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }

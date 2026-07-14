@@ -1,11 +1,17 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required
 from app import db
-from app.models import Report, Unit
+from app.models import Report, Unit, Step
 from app.services.powerbi_service import PowerBIService
 from app.middleware.auth import get_current_user, require_role
 
 bp = Blueprint('reports', __name__)
+
+# Workspaces permitidos para painéis gerenciados via API
+ALLOWED_WORKSPACE_IDS = {
+    "92c6a839-193b-41b7-bde6-5a23eefe0182",  # Produção
+    "13bcf71a-8662-4a3c-af49-390ad878a554",  # Homologação
+}
 
 @bp.route('', methods=['GET'])
 @jwt_required()
@@ -141,6 +147,9 @@ def create_report():
             step_id:
               type: integer
               description: ID do bloco/step (opcional)
+            rls_enabled:
+              type: boolean
+              description: Se False, não envia RLS (effective identity) para este painel. Default True.
     responses:
       201:
         description: Report criado com sucesso
@@ -148,15 +157,23 @@ def create_report():
         description: Dados inválidos
     """
     data = request.get_json()
-    
-    required_fields = ['unit_ids', 'report_id', 'workspace_id', 'name', 'code']
-    if not all(field in data for field in required_fields):
+
+    required_fields = ['unit_ids', 'report_id', 'workspace_id', 'name', 'code', 'step_id']
+    if not all(data.get(field) for field in required_fields):
         return jsonify({'error': 'Campos obrigatórios ausentes'}), 400
-    
+
     # Verificar se unit_ids é uma lista
     if not isinstance(data['unit_ids'], list) or len(data['unit_ids']) == 0:
         return jsonify({'error': 'unit_ids deve ser um array não vazio'}), 400
-    
+
+    # Validar workspace permitido
+    if data['workspace_id'] not in ALLOWED_WORKSPACE_IDS:
+        return jsonify({'error': 'workspace_id inválido'}), 400
+
+    # Verificar se o step existe
+    if not Step.query.get(data['step_id']):
+        return jsonify({'error': f'Step ID {data["step_id"]} não encontrado'}), 404
+
     # Verificar se todas as unidades existem
     units = []
     for unit_id in data['unit_ids']:
@@ -164,11 +181,11 @@ def create_report():
         if not unit:
             return jsonify({'error': f'Unidade ID {unit_id} não encontrada'}), 404
         units.append(unit)
-    
+
     # Verificar se report_id já existe
     if Report.query.filter_by(report_id=data['report_id']).first():
         return jsonify({'error': 'Report ID já existe'}), 409
-    
+
     report = Report(
         report_id=data['report_id'],
         workspace_id=data['workspace_id'],
@@ -176,7 +193,8 @@ def create_report():
         name=data['name'],
         code=data['code'],
         embed_url=data.get('embed_url'),
-        step_id=data.get('step_id')
+        step_id=data['step_id'],
+        rls_enabled=data.get('rls_enabled', True)
     )
     
     # Associar unidades
@@ -210,28 +228,83 @@ def update_report(id):
           properties:
             name:
               type: string
+            code:
+              type: string
+            report_id:
+              type: string
+            workspace_id:
+              type: string
+            step_id:
+              type: integer
+            unit_ids:
+              type: array
+              items:
+                type: integer
             embed_url:
               type: string
             dataset_id:
               type: string
+            rls_enabled:
+              type: boolean
+              description: Ativa/desativa envio de RLS (effective identity) para este painel
     responses:
       200:
         description: Report atualizado
       404:
         description: Report não encontrado
+      409:
+        description: Report ID já existe
     """
     report = Report.query.get_or_404(id)
     data = request.get_json()
-    
+
     if data.get('name'):
         report.name = data['name']
+    if data.get('code'):
+        report.code = data['code']
     if 'embed_url' in data:
         report.embed_url = data['embed_url']
     if 'dataset_id' in data:
         report.dataset_id = data['dataset_id']
-    
+    if 'rls_enabled' in data:
+        report.rls_enabled = bool(data['rls_enabled'])
+
+    # report_id: garantir unicidade excluindo o próprio registro
+    if data.get('report_id'):
+        existing = Report.query.filter(
+            Report.report_id == data['report_id'],
+            Report.id != id
+        ).first()
+        if existing:
+            return jsonify({'error': 'Report ID já existe'}), 409
+        report.report_id = data['report_id']
+
+    # workspace_id: validar contra lista permitida
+    if data.get('workspace_id'):
+        if data['workspace_id'] not in ALLOWED_WORKSPACE_IDS:
+            return jsonify({'error': 'workspace_id inválido'}), 400
+        report.workspace_id = data['workspace_id']
+
+    # step_id: validar existência do step
+    if data.get('step_id'):
+        if not Step.query.get(data['step_id']):
+            return jsonify({'error': f'Step ID {data["step_id"]} não encontrado'}), 404
+        report.step_id = data['step_id']
+
+    # unit_ids: reatribuir associação N:N
+    if 'unit_ids' in data:
+        if not isinstance(data['unit_ids'], list) or len(data['unit_ids']) == 0:
+            return jsonify({'error': 'unit_ids deve ser um array não vazio'}), 400
+        units = []
+        for unit_id in data['unit_ids']:
+            unit = Unit.query.get(unit_id)
+            if not unit:
+                return jsonify({'error': f'Unidade ID {unit_id} não encontrada'}), 404
+            units.append(unit)
+        report.units = units
+
     db.session.commit()
-    
+
     return jsonify(report.to_dict()), 200
 
 @bp.route('/<int:id>', methods=['DELETE'])
@@ -314,13 +387,17 @@ def get_embed_config(id):
     try:
         pbi_service = PowerBIService()
 
-        # Obter bi_filter_param da associação user-unit
-        username = user.get_bi_filter_param(unit_id)
-        if not username:
-            return jsonify({'error': 'Nenhum filtro encontrado para esta combinação de usuário-unidade'}), 400
-
-        # Roles fixo
-        roles = ["rls_unidades"]
+        # RLS por painel: se desativado neste report, não envia effective identity
+        if report.rls_enabled:
+            # Obter bi_filter_param da associação user-unit
+            username = user.get_bi_filter_param(unit_id)
+            if not username:
+                return jsonify({'error': 'Nenhum filtro encontrado para esta combinação de usuário-unidade'}), 400
+            # Roles fixo
+            roles = ["rls_unidades"]
+        else:
+            username = None
+            roles = None
 
         # Obter configuração completa
         config = pbi_service.get_embed_config(
