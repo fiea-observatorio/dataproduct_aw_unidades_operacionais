@@ -270,7 +270,7 @@ def _calculate_eb_hora_aluno():
 
     Replica o cálculo em DAX:
       - eb_metahoras = SUM(metaofertaeb.nr_producao)
-      - eb_realizadohora = SUM(ebdr.nr_carga_horaria) onde
+      - eb_realizadohora = SUM(ebdr.nr_cargahoraria) onde
           YEAR(dt_inicial) = ano atual
       - eb_realizado_x_metahoras = realizado / meta
 
@@ -313,7 +313,7 @@ def _calculate_eb_hora_aluno():
         ]
 
         realizado_stmt = select(
-            func.sum(fato_producao_ebdr.c.nr_carga_horaria)
+            func.sum(fato_producao_ebdr.c.nr_cargahoraria)
         ).where(
             and_(
                 func.extract("year", fato_producao_ebdr.c.dt_inicial) == current_year,

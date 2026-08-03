@@ -9,9 +9,10 @@ dw_engine = create_engine(os.getenv("DATABASE_URL_DW"))
 dw_metadata = MetaData(schema="dw")
 
 # Colunas: cd_filial, cd_unidade, dt_matricula, dt_inicial, dt_final, nr_matricula,
-#   cd_turma, nr_matricula_tuma, cd_centro, cd_curso, nm_curso, cd_modalidade_curso,
-#   nm_modalidade, nm_mediacao, nm_situacao_matricula, nm_financiamento, nr_carga_horaria,
-#   nm_periodo_letivo, nm_industria, dt_aula, nm_aluno, nm_fonte, dt_carga
+#   cd_turma, nr_matriculaturma, cd_centro, cd_curso, nm_curso, cd_modalidadecurso,
+#   nm_modalidade, nm_mediacao, nm_situacaomatricula, nm_financiamento, nr_cargahoraria,
+#   nm_periodoletivo, nm_industria, dt_aula, nm_aluno, nm_fonte, dt_carga, ds_grade,
+#   cd_grade, nr_mesreferenciaproducao, nr_anoreferenciaproducao
 fato_producao_ebdr = Table(
     'fato_producao_ebdr',
     dw_metadata,
