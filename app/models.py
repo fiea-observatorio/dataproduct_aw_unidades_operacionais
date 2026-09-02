@@ -67,6 +67,30 @@ class User(db.Model):
         user_unit = next((uu for uu in self.user_units if uu.unit_id == unit_id), None)
         return user_unit.bi_filter_param if user_unit else None
 
+class IdigitalUser(db.Model):
+    """Mapeia um e-mail autenticado no iDigital para um usuário legado.
+
+    O usuário legado é quem carrega os vínculos de unidades e o
+    bi_filter_param; quem loga via iDigital herda exatamente esses acessos.
+    """
+    __tablename__ = 'idigital_users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'email': self.email,
+            'user_id': self.user_id,
+            'username': self.user.username if self.user else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
 class Unit(db.Model):
     __tablename__ = 'units'
     

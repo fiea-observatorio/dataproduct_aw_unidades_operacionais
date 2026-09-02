@@ -16,6 +16,15 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(seconds=int(os.getenv('JWT_ACCESS_TOKEN_EXPIRES', 3600)))
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(seconds=int(os.getenv('JWT_REFRESH_TOKEN_EXPIRES', 2592000)))
 
+    # Login por senha de desenvolvimento (nunca ligar em produção)
+    ALLOW_PASSWORD_LOGIN = os.getenv('ALLOW_PASSWORD_LOGIN', '0') == '1'
+
+    # iDigital SSO (FIEA)
+    IDIGITAL_ISSUER = os.getenv('IDIGITAL_ISSUER', 'https://sso-homo.idigital.sistemafiea.com.br')
+    IDIGITAL_CLIENT_ID = os.getenv('IDIGITAL_CLIENT_ID')
+    # Host do front cadastrado no iDigital — vira o "aud" do access token.
+    IDIGITAL_APPLICATION_HOST = os.getenv('IDIGITAL_APPLICATION_HOST')
+
     # Power BI Configuration
     POWERBI_CLIENT_ID = os.getenv('POWERBI_CLIENT_ID')
     POWERBI_CLIENT_SECRET = os.getenv('POWERBI_CLIENT_SECRET')

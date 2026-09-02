@@ -97,4 +97,8 @@ def create_app(config_name=None):
     from app.utils.error_handlers import register_error_handlers
     register_error_handlers(app)
 
+    # Comandos de terminal (flask idigital ...)
+    from app.cli import idigital_cli
+    app.cli.add_command(idigital_cli)
+
     return app

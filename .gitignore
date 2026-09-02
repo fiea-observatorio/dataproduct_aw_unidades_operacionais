@@ -58,3 +58,6 @@ htmlcov/
 
 # Migrations (opcional - remova se quiser versionar)
 migrations/versions/*.py
+
+# Scripts de povoamento com dados reais (hashes de senha)
+scripts/producao/
