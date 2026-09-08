@@ -358,26 +358,36 @@ def _calculate_ep_hora_aluno():
         meta = int(conn.execute(meta_stmt).scalar() or 0)
 
         current_year = datetime.now().year
-        realizado_stmt = select(
-            func.sum(fato_producao_epdr.c.nr_cargahoraria)
-        ).where(
-            and_(
-                func.extract('year', fato_producao_epdr.c.dt_data) == current_year,
-                fato_producao_epdr.c.nm_unidade.notin_([
-                    'Cep - Jackson Monteiro Ferreira',
-                    'Cep - Napoleão Barbosa',
-                ]),
-                fato_producao_epdr.c.dt_inicial > datetime(2022, 12, 31).date(),
-                fato_producao_epdr.c.nm_unidade.in_(unit_aliases),
-            )
+        current_month = datetime.now().month
+        mes_expr = func.extract('month', fato_producao_epdr.c.dt_data)
+        base_conditions = and_(
+            func.extract('year', fato_producao_epdr.c.dt_data) == current_year,
+            fato_producao_epdr.c.nm_unidade.notin_([
+                'Cep - Jackson Monteiro Ferreira',
+                'Cep - Napoleão Barbosa',
+            ]),
+            fato_producao_epdr.c.dt_inicial > datetime(2022, 12, 31).date(),
+            fato_producao_epdr.c.nm_unidade.in_(unit_aliases),
         )
-        realizado = int(conn.execute(realizado_stmt).scalar() or 0)
+        soma = func.sum(fato_producao_epdr.c.nr_cargahoraria)
+
+        realizado = int(conn.execute(select(soma).where(base_conditions)).scalar() or 0)
+        # A fato EP carrega hora-aluno alocada para o ano inteiro; o recorte por
+        # mês separa o que já aconteceu do que ainda é projeção.
+        executado = int(conn.execute(
+            select(soma).where(and_(base_conditions, mes_expr <= current_month))
+        ).scalar() or 0)
+        forecast = int(conn.execute(
+            select(soma).where(and_(base_conditions, mes_expr > current_month))
+        ).scalar() or 0)
 
     resultado = round((realizado / meta) * 100, 2) if meta else 0
 
     return {
         'meta': meta,
         'realizado': realizado,
+        'executado': executado,
+        'forecast': forecast,
         'resultado': resultado,
         'year': current_year,
     }
@@ -429,8 +439,10 @@ def _calculate_ssi_consultas_exames():
         )
         meta = int(conn.execute(meta_stmt).scalar() or 0)
 
+        mes_comp = func.extract('month', fato_producao_saudecomplementar.c.dt_data)
         complementar_stmt = select(
-            func.sum(fato_producao_saudecomplementar.c.qt_qtde)
+            mes_comp.label('mes'),
+            func.sum(fato_producao_saudecomplementar.c.qt_qtde).label('soma'),
         ).where(
             and_(
                 fato_producao_saudecomplementar.c.st_status == 'LANCADO',
@@ -444,9 +456,12 @@ def _calculate_ssi_consultas_exames():
                 func.extract('year', fato_producao_saudecomplementar.c.dt_data) == current_year,
                 fato_producao_saudecomplementar.c.cd_filial.in_(cd_filiais),
             )
-        )
+        ).group_by(mes_comp)
+
+        mes_ocup = func.extract('month', fato_producao_saudeocupacional.c.dt_data)
         ocupacional_stmt = select(
-            func.sum(fato_producao_saudeocupacional.c.qt_qtde)
+            mes_ocup.label('mes'),
+            func.sum(fato_producao_saudeocupacional.c.qt_qtde).label('soma'),
         ).where(
             and_(
                 fato_producao_saudeocupacional.c.st_status == 'LANCADO',
@@ -455,11 +470,15 @@ def _calculate_ssi_consultas_exames():
                 func.extract('year', fato_producao_saudeocupacional.c.dt_data) == current_year,
                 fato_producao_saudeocupacional.c.cd_filial.in_(cd_filiais),
             )
-        )
-        realizado_comp = conn.execute(complementar_stmt).scalar() or 0
-        realizado_ocup = conn.execute(ocupacional_stmt).scalar() or 0
+        ).group_by(mes_ocup)
 
-    realizado = int(realizado_comp + realizado_ocup)
+        por_mes = {}
+        for stmt in (complementar_stmt, ocupacional_stmt):
+            for row in conn.execute(stmt):
+                mes = int(row.mes)
+                por_mes[mes] = por_mes.get(mes, 0) + float(row.soma or 0)
+
+    realizado = int(sum(por_mes.values()))
     resultado = round((realizado / meta) * 100, 2) if meta else 0
 
     return {
@@ -713,6 +732,13 @@ def get_production_summary():
               type: number
             realizado:
               type: number
+              description: Total do ano (executado + forecast)
+            executado:
+              type: number
+              description: Produção Executada (apenas EP) — meses até o atual, inclusive
+            forecast:
+              type: number
+              description: Produção Forecast/Projetada (apenas EP) — meses futuros
             resultado:
               type: number
             year:
