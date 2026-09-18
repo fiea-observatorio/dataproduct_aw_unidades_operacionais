@@ -230,26 +230,24 @@ const report = powerbi.embed(embedContainer, {
 
 ## Deploy em Produção
 
-### Usando Docker (recomendado)
+O script `deploy.ps1` (PowerShell) ativa o ambiente na `.env`, faz o build da imagem e envia para o Harbor:
 
-```dockerfile
-FROM python:3.10-slim
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "run:app"]
+```powershell
+.\deploy.ps1 -Tag stable   # produção    -> api:stable
+.\deploy.ps1 -Tag latest   # homologação -> api:latest
 ```
 
-### Variáveis de ambiente importantes para produção
+- `-Tag` é obrigatório e aceita apenas `stable` (produção) ou `latest` (homologação) — é ele que define o ambiente.
+- Antes do build, o bloco correspondente da seção **DINÂMICAS** da `.env` é descomentado e os demais são comentados. A `.env` inteira vai para dentro da imagem (`COPY . .` no `Dockerfile`).
+- Imagem: `harbor.sistemafiea.com.br/dataproduct-aw-plataformaunidades-api/api:{tag}`.
+- Exige `docker login harbor.sistemafiea.com.br` na máquina. O contêiner sobe com gunicorn na porta **5000**.
 
-- Configure `FLASK_ENV=production`
-- Use banco PostgreSQL
-- Use secrets seguros para JWT
-- Configure CORS adequadamente
+### Antes de subir para produção
+
+- `FLASK_ENV=production` e `ALLOW_PASSWORD_LOGIN=0` (o login por senha é só de desenvolvimento).
+- `SECRET_KEY` e `JWT_SECRET_KEY` com valores aleatórios (nunca os placeholders do `.env.example`).
+- `CORS_ORIGINS` e `IDIGITAL_APPLICATION_HOST` com o domínio do ambiente — este último idêntico ao do front.
+- Migrations aplicadas no banco do ambiente: `flask db upgrade`.
 
 ## Troubleshooting
 

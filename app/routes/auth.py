@@ -180,6 +180,49 @@ def idigital_login():
         'user': user.to_dict(include_units=True)
     }), 200
 
+@bp.route('/impersonate', methods=['POST'])
+@require_role('admin')
+def impersonate():
+    """
+    Emite tokens de outro perfil para o admin visualizar a plataforma como ele
+    ---
+    tags:
+      - Authentication
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - user_id
+          properties:
+            user_id:
+              type: integer
+    responses:
+      200:
+        description: Tokens e dados do perfil escolhido
+      400:
+        description: Perfil inválido
+      404:
+        description: Perfil não encontrado
+    """
+    data = request.get_json() or {}
+    user = User.query.get(data.get('user_id')) if data.get('user_id') else None
+
+    if not user:
+        return jsonify({'error': 'Perfil não encontrado'}), 404
+    if user.role == 'admin':
+        return jsonify({'error': 'Só é possível visualizar como perfis de unidade'}), 400
+
+    return jsonify({
+        'access_token': create_access_token(identity=str(user.id)),
+        'refresh_token': create_refresh_token(identity=str(user.id)),
+        'user': user.to_dict(include_units=True)
+    }), 200
+
 @bp.route('/idigital/profiles', methods=['GET'])
 @require_role('admin')
 def list_idigital_profiles():

@@ -511,6 +511,17 @@ _STI_MEDIDA_CONFIG = {
 # deriva nm_modalidade / un_medida / nm_unidadeajustada. Soma
 # qt_apropriadas (horas para não-Metrologia; nº de serviços para Metrologia).
 # Recorte por YEAR(dt_apropriacao) para o ano vigente.
+#
+# Metrologia de Benedito Bentes: no DW toda a produção de Metrologia sai
+# como ds_unidade = 'Unidade Senai Poço' (nm_unidadecarteira nula ou Poço).
+# A unidade identifica seus serviços pelo texto de ds_proposta, que traz
+# um prefixo 'B.BENTES' (com variações 'B. BENTES', 'B BENTES', 'B,BENTES').
+# Essas linhas são atribuídas a 'Unidade Sesi/senai Benedito Bentes' — o
+# mesmo nome usado na meta (fato_producao_metaofertasti) e em
+# USER_UNIT_ALIASES — e deixam de contar para o Poço.
+_STI_METROLOGIA_BBENTES_UNIDADE = 'Unidade Sesi/senai Benedito Bentes'
+_STI_METROLOGIA_BBENTES_PATTERN = '%B[., ]%BENTES%'
+
 _STI_REALIZADO_SQL = text("""
 WITH base AS (
     SELECT
@@ -541,7 +552,8 @@ WITH base AS (
             ELSE ds_produtolinha
         END AS nm_modalidade,
         ds_unidade,
-        nm_unidadecarteira
+        nm_unidadecarteira,
+        ds_proposta
     FROM dw.fato_producao_stisgt
 ),
 ajustado AS (
@@ -553,6 +565,8 @@ ajustado AS (
         CASE
             WHEN nm_modalidade = N'Metrologia' THEN
                 CASE
+                    WHEN UPPER(ds_proposta) LIKE :bbentes_pattern
+                        THEN :bbentes_unidade
                     WHEN nm_unidadecarteira IS NULL
                          OR LTRIM(RTRIM(nm_unidadecarteira)) = N''
                         THEN ds_unidade
@@ -613,6 +627,8 @@ def _sti_realizado_por_mes_modalidade(un_medida, modalidades_db, unit_aliases_st
             'modalidades': modalidades_db,
             'unidades': unit_aliases_str,
             'ano': current_year,
+            'bbentes_pattern': _STI_METROLOGIA_BBENTES_PATTERN,
+            'bbentes_unidade': _STI_METROLOGIA_BBENTES_UNIDADE,
         }).fetchall()
         por_mes = {}
         for r in rows:
