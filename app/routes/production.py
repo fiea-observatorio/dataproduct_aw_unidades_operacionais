@@ -84,7 +84,7 @@ USER_UNIT_ALIASES = {
     ],
     "sesi.centro": [
         "ESCOLA SESI CENTRO INDUSTRIAL ABELARDO LOPES",
-        "Escola Sesi Cambona",
+        "Escola Sesi Centro",
     ],
     "sesi.saude.cambona": [
         2781,
@@ -211,7 +211,11 @@ def _calculate_eb_matriculas():
     unit_aliases = USER_UNIT_ALIASES.get(user.username, []) if user else []
     print(f"Calculando EB Matrículas para usuário {user.username} com aliases de unidade: {unit_aliases}")
 
+    current_year = datetime.now().year
+
     with dw_engine.connect() as conn:
+        # metaofertaeb traz também o ano seguinte: recorta o ano vigente, como
+        # o contexto do dashboard.
         meta_stmt = select(
             func.sum(fato_producao_metaofertaeb.c.qt_alunos)
         ).where(
@@ -221,12 +225,11 @@ def _calculate_eb_matriculas():
                     ['Ensino Fundamental', 'Ensino Médio']
                 ),
                 fato_producao_metaofertaeb.c.nm_unidade.in_(unit_aliases),
+                func.extract('year', fato_producao_metaofertaeb.c.dt_calendario) == current_year,
             )
         )
         total_alunos = conn.execute(meta_stmt).scalar() or 0
         meta = int(total_alunos / 12)
-
-        current_year = datetime.now().year
 
         cursos_ensino_medio = [
             "Ensino Médio - Linguagens+Humanas - Design e Cultura Maker",
@@ -281,6 +284,8 @@ def _calculate_eb_hora_aluno():
     user = get_current_user()
     unit_aliases = USER_UNIT_ALIASES.get(user.username, []) if user else []
 
+    current_year = datetime.now().year
+
     with dw_engine.connect() as conn:
         meta_stmt = select(
             func.sum(fato_producao_metaofertaeb.c.nr_producao)
@@ -291,11 +296,10 @@ def _calculate_eb_hora_aluno():
                     ['Ensino Fundamental', 'Ensino Médio']
                 ),
                 fato_producao_metaofertaeb.c.nm_unidade.in_(unit_aliases),
+                func.extract('year', fato_producao_metaofertaeb.c.dt_calendario) == current_year,
             )
         )
         meta = int(conn.execute(meta_stmt).scalar() or 0)
-
-        current_year = datetime.now().year
 
         cursos_ensino_medio = [
             "Ensino Médio - Linguagens+Humanas - Design e Cultura Maker",
