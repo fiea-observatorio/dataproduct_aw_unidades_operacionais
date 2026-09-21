@@ -79,6 +79,8 @@ USER_UNIT_ALIASES = {
     ],
     "sesi.senai.arapiraca": [
         "Unidade Sesi/senai Arapiraca",
+        # Nome novo nas tabelas de meta/oferta (metaofertasti, metaofertassi).
+        "Unidade Sesi/senai Agreste Sertão",
         "Unidade Senai Arapiraca Jose Gomes Barbosa",
         2784,
     ],
@@ -97,9 +99,11 @@ USER_UNIT_ALIASES = {
 # dw.fato_producao_metaofertassi. Replica o passo "Coluna Condicional
 # Adicionada" do Power Query (cod_unidade) — só que filtra direto pelo nome
 # em vez de mapear pra código.
+# As unidades foram renomeadas nessa tabela em 2026 (Cambona -> Sesi Farol,
+# Arapiraca -> Agreste Sertão); os nomes antigos ficam para o histórico.
 SSI_METAOFERTASSI_UNIDADES_BY_USER = {
-    "sesi.senai.arapiraca": ["Unidade Sesi/senai Arapiraca"],
-    "sesi.saude.cambona": ["Unidade Cambona Saúde"],
+    "sesi.senai.arapiraca": ["Unidade Sesi/senai Arapiraca", "Unidade Sesi/senai Agreste Sertão"],
+    "sesi.saude.cambona": ["Unidade Cambona Saúde", "Unidade Sesi Farol"],
     "sesi.saude.tabuleiro": ["Unidade Sesi Tabuleiro"],
 }
 
