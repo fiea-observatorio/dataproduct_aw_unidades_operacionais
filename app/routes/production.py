@@ -520,17 +520,48 @@ _STI_MEDIDA_CONFIG = {
 # qt_apropriadas (horas para não-Metrologia; nº de serviços para Metrologia).
 # Recorte por YEAR(dt_apropriacao) para o ano vigente.
 #
-# Metrologia de Benedito Bentes: no DW toda a produção de Metrologia sai
-# como ds_unidade = 'Unidade Senai Poço' (nm_unidadecarteira nula ou Poço).
-# A unidade identifica seus serviços pelo texto de ds_proposta, que traz
-# um prefixo 'B.BENTES' (com variações 'B. BENTES', 'B BENTES', 'B,BENTES').
-# Essas linhas são atribuídas a 'Unidade Sesi/senai Benedito Bentes' — o
-# mesmo nome usado na meta (fato_producao_metaofertasti) e em
-# USER_UNIT_ALIASES — e deixam de contar para o Poço.
-_STI_METROLOGIA_BBENTES_UNIDADE = 'Unidade Sesi/senai Benedito Bentes'
-_STI_METROLOGIA_BBENTES_PATTERN = '%B[., ]%BENTES%'
+# Metrologia: no DW toda a produção sai como ds_unidade = 'Unidade Senai Poço'
+# (nm_unidadecarteira nula ou Poço). As demais unidades identificam seus
+# serviços pelo texto de ds_proposta, e essas linhas são reatribuídas à
+# unidade dona — nomes que estão em USER_UNIT_ALIASES — deixando de contar
+# para o Poço.
+#
+# Benedito Bentes usa o prefixo 'B.BENTES' (variações 'B. BENTES', 'B BENTES',
+# 'B,BENTES'). Arapiraca usa o nome da cidade/unidade como prefixo
+# ('ARAPIRACA_PRP-2419', 'ARAPIRACA - PRP-3218'); depois da renomeação para
+# Agreste Sertão devem aparecer 'AGRESTE...' e 'SERTÃO/SERTAO...'.
+#
+# Os padrões de Arapiraca são ancorados no início do texto de propósito: no
+# meio do ds_proposta esses nomes aparecem como nome de cliente ('UPA
+# ARAPIRACA', 'AGRESTE LANCHONETE LTDA'), que são atendimentos do Poço.
+_STI_METROLOGIA_PROPOSTA_UNIDADES = [
+    ('Unidade Sesi/senai Benedito Bentes', ['%B[., ]%BENTES%']),
+    ('Unidade Sesi/senai Arapiraca', ['ARAPIRACA%', 'AGREST%', 'SERT_O%']),
+]
 
-_STI_REALIZADO_SQL = text("""
+
+def _sti_metrologia_case_sql():
+    """Monta os WHEN de ds_proposta por unidade e os parâmetros dos padrões."""
+    branches = []
+    params = {}
+    for indice, (unidade, padroes) in enumerate(_STI_METROLOGIA_PROPOSTA_UNIDADES):
+        unidade_param = f'prop_unidade_{indice}'
+        params[unidade_param] = unidade
+        condicoes = []
+        for sub, padrao in enumerate(padroes):
+            padrao_param = f'prop_padrao_{indice}_{sub}'
+            params[padrao_param] = padrao
+            condicoes.append(f'UPPER(LTRIM(ds_proposta)) LIKE :{padrao_param}')
+        branches.append(
+            '                    WHEN ' + ' OR '.join(condicoes)
+            + f' THEN :{unidade_param}'
+        )
+    return chr(10).join(branches), params
+
+
+_STI_METROLOGIA_CASE_SQL, _STI_METROLOGIA_PROPOSTA_PARAMS = _sti_metrologia_case_sql()
+
+_STI_REALIZADO_SQL = text(f"""
 WITH base AS (
     SELECT
         TRY_CAST(qt_apropriadas AS INT) AS qt_apropriadas,
@@ -573,8 +604,7 @@ ajustado AS (
         CASE
             WHEN nm_modalidade = N'Metrologia' THEN
                 CASE
-                    WHEN UPPER(ds_proposta) LIKE :bbentes_pattern
-                        THEN :bbentes_unidade
+{_STI_METROLOGIA_CASE_SQL}
                     WHEN nm_unidadecarteira IS NULL
                          OR LTRIM(RTRIM(nm_unidadecarteira)) = N''
                         THEN ds_unidade
@@ -635,8 +665,7 @@ def _sti_realizado_por_mes_modalidade(un_medida, modalidades_db, unit_aliases_st
             'modalidades': modalidades_db,
             'unidades': unit_aliases_str,
             'ano': current_year,
-            'bbentes_pattern': _STI_METROLOGIA_BBENTES_PATTERN,
-            'bbentes_unidade': _STI_METROLOGIA_BBENTES_UNIDADE,
+            **_STI_METROLOGIA_PROPOSTA_PARAMS,
         }).fetchall()
         por_mes = {}
         for r in rows:
