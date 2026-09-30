@@ -357,16 +357,23 @@ def _calculate_ep_hora_aluno():
     user = get_current_user()
     unit_aliases = USER_UNIT_ALIASES.get(user.username, []) if user else []
 
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+
     with dw_engine.connect() as conn:
+        # dt_mesreferencia é texto no formato YYYY-MM (YEAR() nela devolve
+        # NULL), então o recorte do ano vigente vai pelo prefixo. A tabela só
+        # tem 2026 hoje, mas as outras metas já vêm com o ano seguinte junto.
         meta_stmt = select(
             func.sum(fato_producao_metaproducaoep.c.nr_horaalunomensalalocada)
         ).where(
-            fato_producao_metaproducaoep.c.nm_unidade.in_(unit_aliases)
+            and_(
+                fato_producao_metaproducaoep.c.nm_unidade.in_(unit_aliases),
+                fato_producao_metaproducaoep.c.dt_mesreferencia.like(f'{current_year}-%'),
+            )
         )
         meta = int(conn.execute(meta_stmt).scalar() or 0)
 
-        current_year = datetime.now().year
-        current_month = datetime.now().month
         mes_expr = func.extract('month', fato_producao_epdr.c.dt_data)
         base_conditions = and_(
             func.extract('year', fato_producao_epdr.c.dt_data) == current_year,

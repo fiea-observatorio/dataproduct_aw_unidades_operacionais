@@ -49,3 +49,4 @@ README.md
 seed_db.py
 seed_db copy.py
 test_routes.py
+*.pbit
