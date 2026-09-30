@@ -115,3 +115,13 @@ fato_producao_stisgt = Table(
     dw_metadata,
     autoload_with=dw_engine
 )
+
+# Colunas: cd_orcamento, cd_filial, cd_unidadeorganizacional (texto, ex.: '040401'),
+#   cd_centroresponsabilidade, cd_contacontabil, cd_contaorcamentaria, vl_inicial,
+#   vl_revisado, vl_real, nr_mes, nr_ano, tp_periodicidade ('Receita', 'Despesa',
+#   'Mensal'), cd_empresaid (texto: '1' = SENAI, '2' = SESI), dt_carga
+fato_orcamento_lancamentos = Table(
+    'fato_orcamento_lancamentos',
+    dw_metadata,
+    autoload_with=dw_engine
+)

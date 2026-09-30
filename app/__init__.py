@@ -73,7 +73,7 @@ def create_app(config_name=None):
     Swagger(app, config=swagger_config, template=swagger_template)
 
     # Register blueprints
-    from app.routes import auth, units, admin, reports, steps, external, production
+    from app.routes import auth, units, admin, reports, steps, external, production, budget
 
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
     app.register_blueprint(units.bp, url_prefix='/api/units')
@@ -82,6 +82,7 @@ def create_app(config_name=None):
     app.register_blueprint(steps.bp, url_prefix='/api/steps')
     app.register_blueprint(external.bp, url_prefix='/api/external')
     app.register_blueprint(production.bp, url_prefix='/api/production')
+    app.register_blueprint(budget.bp, url_prefix='/api/budget')
 
     # Health check endpoint
     @app.route('/health')
