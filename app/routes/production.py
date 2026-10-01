@@ -203,13 +203,16 @@ def _calculate_eb_matriculas():
 
     Replica o cálculo em DAX:
       - eb_meta = SUM(metaofertaeb.qt_alunos) / 12
-      - eb_realizado2 = DISTINCTCOUNT(ebdr.nr_matricula) onde
-          YEAR(dt_inicial) = ano atual
+      - eb_realizado2 = DISTINCTCOUNT(ebdr.nr_matricula) com dt_inicial no
+          período; o relacionamento do calendário é por dt_aula, então valem
+          as duas datas
       - eb_resultado = realizado / meta
+
+    Sem recorte de modalidade: no painel o slicer fica em "Todos", ou seja
+    entram EJA e as demais ações educativas.
 
     Aplica os filtros do Power Query sobre metaofertaeb:
       - cd_ofertaid ∉ ('9340', '9341')
-      - nm_modalidade ∈ ('Ensino Fundamental', 'Ensino Médio')
     """
     user = get_current_user()
     unit_aliases = USER_UNIT_ALIASES.get(user.username, []) if user else []
@@ -225,9 +228,6 @@ def _calculate_eb_matriculas():
         ).where(
             and_(
                 fato_producao_metaofertaeb.c.cd_ofertaid.notin_(['9340', '9341']),
-                fato_producao_metaofertaeb.c.nm_modalidade.in_(
-                    ['Ensino Fundamental', 'Ensino Médio']
-                ),
                 fato_producao_metaofertaeb.c.nm_unidade.in_(unit_aliases),
                 func.extract('year', fato_producao_metaofertaeb.c.dt_calendario) == current_year,
             )
@@ -235,27 +235,15 @@ def _calculate_eb_matriculas():
         total_alunos = conn.execute(meta_stmt).scalar() or 0
         meta = int(total_alunos / 12)
 
-        cursos_ensino_medio = [
-            "Ensino Médio - Linguagens+Humanas - Design e Cultura Maker",
-            "Ensino Médio - Matemática+Humanas+Linguagens - Análise de Dados e Programação",
-            "Novo Ensino Médio - Formação Geral Básica",
-            "Novo Ensino Médio - Matemática",
-            "Novo Ensino Médio - Ciências da Natureza",
-            "Ensino Médio - Matemática+Natureza - Biotecnologia e Saúde",
-            "Novo Ensino Médio - Formação Técnica e Profissional",
-        ]
-
-        cursos_ensino_fundamental = [
-            "Ensino Fundamental - Anos Finais",
-            "Ensino Fundamental - Anos Iniciais",
-        ]
-
+        # O DAX filtra dt_inicial dentro do período e o relacionamento do
+        # calendário restringe dt_aula: conta quem começou no ano e teve aula
+        # nele.
         realizado_stmt = select(
             func.count(func.distinct(fato_producao_ebdr.c.nr_matricula))
         ).where(
             and_(
+                func.extract("year", fato_producao_ebdr.c.dt_aula) == current_year,
                 func.extract("year", fato_producao_ebdr.c.dt_inicial) == current_year,
-                fato_producao_ebdr.c.nm_curso.in_(cursos_ensino_medio + cursos_ensino_fundamental),
                 fato_producao_ebdr.c.cd_unidade.in_(unit_aliases),
             )
         )
@@ -276,14 +264,13 @@ def _calculate_eb_hora_aluno():
     """Meta, realizado e resultado para SESI Educação Básica — Hora-aluno.
 
     Replica o cálculo em DAX:
-      - eb_metahoras = SUM(metaofertaeb.nr_producao)
-      - eb_realizadohora = SUM(ebdr.nr_cargahoraria) onde
-          YEAR(dt_inicial) = ano atual
+      - eb_metahoras = SUM(metaofertaeb.nr_horaalunoprevisto)
+      - eb_realizadohora = SUM(ebdr.nr_cargahoraria) no período, pelo
+          relacionamento do calendário com dt_aula
       - eb_realizado_x_metahoras = realizado / meta
 
-    Aplica os mesmos filtros de matrículas:
-      - metaofertaeb: cd_ofertaid ∉ ('9340','9341'), nm_modalidade ∈ ('Ensino Fundamental','Ensino Médio')
-      - ebdr: nm_curso ∈ lista fixa de cursos EB
+    Mesmos filtros de matrículas: metaofertaeb sem cd_ofertaid 9340/9341 e
+    sem recorte de modalidade (no painel o slicer fica em "Todos").
     """
     user = get_current_user()
     unit_aliases = USER_UNIT_ALIASES.get(user.username, []) if user else []
@@ -291,41 +278,27 @@ def _calculate_eb_hora_aluno():
     current_year = datetime.now().year
 
     with dw_engine.connect() as conn:
+        # nr_horaalunoprevisto = qt_alunos x nr_producao, materializado no dw.
+        # nr_producao sozinho é a carga da oferta no mês (sem multiplicar pelos
+        # alunos), o que comparava horas de turma com hora-aluno do realizado.
         meta_stmt = select(
-            func.sum(fato_producao_metaofertaeb.c.nr_producao)
+            func.sum(fato_producao_metaofertaeb.c.nr_horaalunoprevisto)
         ).where(
             and_(
                 fato_producao_metaofertaeb.c.cd_ofertaid.notin_(['9340', '9341']),
-                fato_producao_metaofertaeb.c.nm_modalidade.in_(
-                    ['Ensino Fundamental', 'Ensino Médio']
-                ),
                 fato_producao_metaofertaeb.c.nm_unidade.in_(unit_aliases),
                 func.extract('year', fato_producao_metaofertaeb.c.dt_calendario) == current_year,
             )
         )
         meta = int(conn.execute(meta_stmt).scalar() or 0)
 
-        cursos_ensino_medio = [
-            "Ensino Médio - Linguagens+Humanas - Design e Cultura Maker",
-            "Ensino Médio - Matemática+Humanas+Linguagens - Análise de Dados e Programação",
-            "Novo Ensino Médio - Formação Geral Básica",
-            "Novo Ensino Médio - Matemática",
-            "Novo Ensino Médio - Ciências da Natureza",
-            "Ensino Médio - Matemática+Natureza - Biotecnologia e Saúde",
-            "Novo Ensino Médio - Formação Técnica e Profissional",
-        ]
-
-        cursos_ensino_fundamental = [
-            "Ensino Fundamental - Anos Finais",
-            "Ensino Fundamental - Anos Iniciais",
-        ]
-
+        # Hora-aluno do período: o calendário se relaciona com ebdr por
+        # dt_aula, então é o mês da aula que define o recorte.
         realizado_stmt = select(
             func.sum(fato_producao_ebdr.c.nr_cargahoraria)
         ).where(
             and_(
-                func.extract("year", fato_producao_ebdr.c.dt_inicial) == current_year,
-                fato_producao_ebdr.c.nm_curso.in_(cursos_ensino_medio + cursos_ensino_fundamental),
+                func.extract("year", fato_producao_ebdr.c.dt_aula) == current_year,
                 fato_producao_ebdr.c.cd_unidade.in_(unit_aliases),
             )
         )
@@ -421,10 +394,10 @@ def _calculate_ssi_consultas_exames():
       - ssi_realizado = SUM(producao_ssi_real[qt_qtde]) onde
           producao_ssi_real = UNION(saudecomplementar, saudeocupacional)
           Filtros replicados do Power Query:
-            saudecomplementar: st_status='LANCADO',
+            saudecomplementar: st_status <> 'ESTORNADO',
               nm_item ∉ ('PRE-CONSULTA', 'VACINA H1N1 MONODOSE - 2023'/2024/2025),
               nk_idlanc IS NOT NULL
-            saudeocupacional: st_status='LANCADO',
+            saudeocupacional: st_status <> 'ESTORNADO',
               nm_item != 'PRE-CONSULTA', nk_idlanc IS NOT NULL
           Recorte pelo ano vigente via YEAR(dt_data) — replica o contexto do
           dashboard, que exibe sempre o ano corrente.
@@ -460,7 +433,9 @@ def _calculate_ssi_consultas_exames():
             func.sum(fato_producao_saudecomplementar.c.qt_qtde).label('soma'),
         ).where(
             and_(
-                fato_producao_saudecomplementar.c.st_status == 'LANCADO',
+                # O painel exclui só os estornos: ATENDIDO e FATURADO também
+                # são produção realizada.
+                fato_producao_saudecomplementar.c.st_status != 'ESTORNADO',
                 fato_producao_saudecomplementar.c.nm_item.notin_([
                     'PRE-CONSULTA',
                     'VACINA H1N1 MONODOSE - 2023',
@@ -479,7 +454,7 @@ def _calculate_ssi_consultas_exames():
             func.sum(fato_producao_saudeocupacional.c.qt_qtde).label('soma'),
         ).where(
             and_(
-                fato_producao_saudeocupacional.c.st_status == 'LANCADO',
+                fato_producao_saudeocupacional.c.st_status != 'ESTORNADO',
                 fato_producao_saudeocupacional.c.nm_item != 'PRE-CONSULTA',
                 fato_producao_saudeocupacional.c.nk_idlanc.isnot(None),
                 func.extract('year', fato_producao_saudeocupacional.c.dt_data) == current_year,
