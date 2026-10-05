@@ -53,7 +53,7 @@ def create_app(config_name=None):
         "info": {
             "title": "Power BI Embedded API",
             "description": "API para gestão de usuários, unidades e integração com Power BI Embedded",
-            "version": "1.0.0"
+            "version": app.config['APP_VERSION']
         },
         "securityDefinitions": {
             "Bearer": {
@@ -73,7 +73,7 @@ def create_app(config_name=None):
     Swagger(app, config=swagger_config, template=swagger_template)
 
     # Register blueprints
-    from app.routes import auth, units, admin, reports, steps, external, production, budget
+    from app.routes import auth, units, admin, reports, steps, external, production, budget, health
 
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
     app.register_blueprint(units.bp, url_prefix='/api/units')
@@ -84,15 +84,8 @@ def create_app(config_name=None):
     app.register_blueprint(production.bp, url_prefix='/api/production')
     app.register_blueprint(budget.bp, url_prefix='/api/budget')
 
-    # Health check endpoint
-    @app.route('/health')
-    def health_check():
-        try:
-            # Check database connection
-            db.session.execute(db.text('SELECT 1'))
-            return {'status': 'healthy', 'database': 'connected'}, 200
-        except Exception as e:
-            return {'status': 'unhealthy', 'database': 'disconnected', 'error': str(e)}, 503
+    # Health check público (/health e /api/health)
+    app.register_blueprint(health.bp)
 
     # Error handlers
     from app.utils.error_handlers import register_error_handlers
