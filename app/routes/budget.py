@@ -44,9 +44,12 @@ def _calculate_receita_servico(cd_empresaid, cd_unidadeorganizacional, ano):
 
     Sobre dw.fato_orcamento_lancamentos, filtrando:
       - cd_contacontabil inicia com '410104' (todas as contas somadas)
-      - tp_periodicidade = 'Receita'
       - nr_ano = ano
       - cd_empresaid e cd_unidadeorganizacional em conjunto
+    Replica o "Orçamento Sintético" do painel Recursos (Receitas de Serviços,
+    Data = ano): lá "Tipo de Valor = Receita" é a conta começar com 4, não
+    tp_periodicidade. Os tipos 'Receita' e 'Mensal' são somados, e o realizado
+    bate com o razão contábil (fato_orcamento_gerenciadorfontescontabeis).
     Calcula:
       - meta = SUM(vl_revisado)
       - realizado = SUM(vl_real)
@@ -62,7 +65,6 @@ def _calculate_receita_servico(cd_empresaid, cd_unidadeorganizacional, ano):
             ).where(
                 and_(
                     t.c.cd_contacontabil.like(f'{_RECEITA_SERVICO_CONTA_PREFIX}%'),
-                    t.c.tp_periodicidade == 'Receita',
                     t.c.nr_ano == ano,
                     t.c.cd_empresaid == cd_empresaid,
                     t.c.cd_unidadeorganizacional == cd_unidadeorganizacional,
