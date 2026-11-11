@@ -11,6 +11,11 @@ class Config:
     SQLALCHEMY_BINDS = {"dw": os.getenv("DATABASE_URL_DW")}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    # Identificação da aplicação (exposta no /health)
+    APP_VERSION = os.getenv('APP_VERSION', '1.0.0')
+    # prod | homol | dev — FLASK_ENV é "production" tanto em prod quanto em homol
+    APP_ENVIRONMENT = os.getenv('APP_ENVIRONMENT', 'dev')
+
     # JWT Configuration
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'jwt-secret-key-change-in-production')
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(seconds=int(os.getenv('JWT_ACCESS_TOKEN_EXPIRES', 3600)))
